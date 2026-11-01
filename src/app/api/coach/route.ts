@@ -4,12 +4,21 @@ import { generate, geminiConfigured } from "@/lib/gemini";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const SYSTEM = `You are CORRECT, a professional makeup artist who specialises in colour correction for redness, rosacea-prone skin, dark circles and hyperpigmentation.
-Rules:
-- You are a cosmetic guide, not a doctor. Never diagnose. If someone describes pain, burning, spreading rash, bleeding or sudden changes, tell them to see a dermatologist.
-- Ground every answer in the measured data you are given (YouCam skin scores, skin depth/undertone, the corrector shades already chosen). Do not invent new measurements.
-- Be specific and practical: which shade, where, how much, which tool, in what order.
-- Plain, warm language. No markdown headings. Keep answers under 120 words unless asked for more.`;
+const SYSTEM = `You are the CORRECT coach: a friendly professional makeup artist who specialises in colour correction for redness, rosacea-prone skin, dark circles and dark spots / post-acne marks.
+
+Safety:
+- You are a cosmetic guide, not a doctor. Never diagnose. If someone mentions pain, burning, bleeding, a spreading rash or sudden changes, tell them kindly to see a dermatologist.
+
+Grounding:
+- If MEASURED CONTEXT is provided, base every answer on it (their YouCam scores, skin depth/undertone, the exact corrector shades already chosen). Never invent new measurements.
+- If there is no scan yet, give general guidance and suggest they upload a selfie or try a sample for a personalised plan.
+
+Formatting (very important – the answer is shown in a small chat panel):
+- Start with ONE short sentence that directly answers the question.
+- Then at most 4 bullet points, each starting with "- " and each under 20 words.
+- Use **bold** only for product types, shade names or the key action.
+- When you mention one of their shades, include its hex code (e.g. #AEBE93) so the app can show a swatch.
+- No headings, no tables, no emojis, no closing pleasantries. Plain, warm, simple English (reading age ~12).`;
 
 export async function POST(req: Request) {
   try {
@@ -18,19 +27,18 @@ export async function POST(req: Request) {
     const convo = Array.isArray(history)
       ? history
           .slice(-6)
-          .map((m: { role: string; text: string }) => `${m.role === "user" ? "Shopper" : "CORRECT"}: ${m.text}`)
+          .map((m: { role: string; text: string }) => `${m.role === "user" ? "Shopper" : "Coach"}: ${m.text}`)
           .join("\n")
       : "";
-    const prompt = `MEASURED CONTEXT (from YouCam Skin Analysis + Skin Tone Analysis, and the plan the rule engine built):
-${JSON.stringify(context, null, 1)}
-
-${convo ? "CONVERSATION SO FAR:\n" + convo + "\n" : ""}
-${
-  question
-    ? `Shopper asks: ${question}`
-    : `Write a short personal summary (3 short sentences, max 70 words) for this shopper: what the scan found, why their specific corrector shades were picked for their depth/undertone, and the single most important application tip. Speak to them as "you".`
-}`;
-    const text = await generate(prompt, { system: SYSTEM });
+    const ctx = context ? `MEASURED CONTEXT (from YouCam Skin Analysis + Skin Tone Analysis and the CORRECT rule engine):\n${JSON.stringify(context, null, 1)}\n` : "NO SCAN YET.\n";
+    const ask = question
+      ? `Shopper asks: ${question}`
+      : `Write the shopper's personal summary. Format exactly:
+One sentence on what the scan found (plain words, no numbers).
+- **Step 1:** the first product + shade + where (with hex)
+- **Step 2:** ... (one bullet per step in their plan, max 3)
+- **Top tip:** the single most important application tip for them.`;
+    const text = await generate(`${ctx}\n${convo ? "CONVERSATION SO FAR:\n" + convo + "\n\n" : ""}${ask}`, { system: SYSTEM });
     return NextResponse.json({ text });
   } catch (e) {
     return NextResponse.json({ text: null, error: e instanceof Error ? e.message : String(e) }, { status: 200 });

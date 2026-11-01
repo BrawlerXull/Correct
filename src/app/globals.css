@@ -35,3 +35,15 @@ html {
   background-size: 800px 100%;
   animation: shimmer 1.4s infinite linear;
 }
+
+/* Accessibility: visible keyboard focus everywhere, respect reduced motion */
+:focus-visible {
+  outline: 3px solid #b4505e;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+details > summary::-webkit-details-marker { display: none; }
