@@ -2,26 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+html {
+  scroll-behavior: smooth;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.card {
+  @apply bg-white/80 border border-line rounded-2xl shadow-card;
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+.btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-full px-5 py-2.5 text-sm font-medium transition disabled:opacity-50 disabled:cursor-not-allowed;
+}
+.btn-primary {
+  @apply btn bg-ink text-cream hover:bg-black;
+}
+.btn-ghost {
+  @apply btn border border-line bg-white hover:bg-sand;
+}
+.chip {
+  @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1 text-xs font-medium;
+}
+.eyebrow {
+  @apply text-[11px] uppercase tracking-[0.18em] text-muted font-medium;
 }
 
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #f2eae0 0px, #faf5ef 120px, #f2eae0 240px);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
 }
