@@ -4,6 +4,8 @@ import CompareSlider from "@/components/CompareSlider";
 import CoachDrawer, { CoachAvatar, CoachLauncher, useCoach } from "@/components/Coach";
 import RichText from "@/components/RichText";
 import { InstallButton } from "@/components/Pwa";
+import CameraCapture from "@/components/CameraCapture";
+import { renderRoutineCard } from "@/lib/shareCard";
 import { dabMap, measure, Metrics, Zones, zonesFromMasks } from "@/lib/measure";
 import { preparePhoto, preloadFaceDetector, PrepError, PrepInfo } from "@/lib/prep";
 import { closest } from "@/lib/catalog";
@@ -68,6 +70,8 @@ export default function Home() {
   const [coachOpen, setCoachOpen] = useState(false);
   const [coachSeen, setCoachSeen] = useState(false);
   const [prepNote, setPrepNote] = useState<string | null>(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [sharing, setSharing] = useState<"idle" | "busy" | "done">("idle");
   const [visibleSection, setVisibleSection] = useState<string>("start");
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -130,7 +134,7 @@ export default function Home() {
   const coachContext = useMemo(() => {
     if (!plan || !analysis) return null;
     return {
-      skin: { hex: plan.profile.skinHex, depth: plan.profile.depthLabel, undertone: plan.profile.undertone, ITA_degrees: plan.profile.ita },
+      skin: { hex: plan.profile.skinHex, depth: plan.profile.depthLabel, undertone: plan.profile.undertone, ITA_degrees: plan.profile.ita, fitzpatrick_type: plan.profile.fitzpatrick },
       youcam_scores_higher_is_healthier: analysis.scores,
       concerns: plan.concerns.map((c) => `${c.label}: ${c.severity}`),
       plan: plan.steps.map((s) => ({ step: s.title, shade: `${s.colorName} ${s.color}`, where: s.where })),
@@ -279,6 +283,37 @@ export default function Home() {
   const currentStep = plan && spyIdx >= 0 && stepAvailable(spyIdx) ? spyIdx : progressStep;
   const mapImg = view === "dab" ? dab : photo;
 
+  async function shareCard() {
+    if (!plan || !photo) return;
+    setSharing("busy");
+    try {
+      const after = finalImg || dab || photo;
+      const blob = await renderRoutineCard({ before: photo, after, afterLabel: finalImg ? "With CORRECT" : "Where to apply", plan, kit });
+      const file = new File([blob], "my-correct-routine.png", { type: "image/png" });
+      const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean };
+      const touch = window.matchMedia("(pointer: coarse)").matches;
+      let shared = false;
+      if (touch && nav.canShare?.({ files: [file] })) {
+        // Phones: native share sheet (save to Photos, send to a friend, post).
+        shared = await nav
+          .share({ files: [file], title: "My colour-correction routine" })
+          .then(() => true)
+          .catch(() => false);
+      }
+      if (!shared) {
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "my-correct-routine.png";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+      }
+      setSharing("done");
+      setTimeout(() => setSharing("idle"), 2500);
+    } catch {
+      setSharing("idle");
+    }
+  }
+
   return (
     <>
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] btn-primary">
@@ -384,31 +419,49 @@ export default function Home() {
             <h2 className="font-serif text-2xl">Start here</h2>
             <p className="text-sm text-muted mt-1">Takes about 15 seconds. No account needed.</p>
 
-            <button
-              className="mt-5 w-full rounded-2xl border-2 border-dashed border-ink/25 bg-white px-5 py-6 text-left hover:border-ink hover:bg-sand/40 transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose/30 disabled:opacity-50"
-              onClick={() => fileRef.current?.click()}
-              disabled={busy}
-            >
-              <span className="flex items-center gap-4">
-                <span className="grid h-12 w-12 place-items-center rounded-full bg-ink text-cream shrink-0">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                    <path d="M4 7h3l2-3h6l2 3h3v12H4z" />
-                    <circle cx="12" cy="13" r="3.5" />
-                  </svg>
+            <div className="mt-5 grid gap-3">
+              <button
+                className="w-full rounded-2xl bg-ink text-cream px-5 py-5 text-left hover:bg-black transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose/30 disabled:opacity-50"
+                onClick={() => setCameraOpen(true)}
+                disabled={busy}
+              >
+                <span className="flex items-center gap-4">
+                  <span className="grid h-12 w-12 place-items-center rounded-full bg-cream text-ink shrink-0">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                      <path d="M4 7h3l2-3h6l2 3h3v12H4z" />
+                      <circle cx="12" cy="13" r="3.5" />
+                    </svg>
+                  </span>
+                  <span>
+                    <span className="block font-medium text-lg">Take a guided selfie</span>
+                    <span className="block text-sm text-cream/70">Live tips for distance, light and angle</span>
+                  </span>
                 </span>
-                <span>
-                  <span className="block font-medium text-lg">Upload or take a selfie</span>
-                  <span className="block text-sm text-muted">Face the camera · bare skin · daylight</span>
+              </button>
+              <button
+                className="w-full rounded-2xl border-2 border-dashed border-ink/25 bg-white px-5 py-4 text-left hover:border-ink hover:bg-sand/40 transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose/30 disabled:opacity-50"
+                onClick={() => fileRef.current?.click()}
+                disabled={busy}
+              >
+                <span className="flex items-center gap-4">
+                  <span className="grid h-10 w-10 place-items-center rounded-full bg-sand text-ink shrink-0">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                      <path d="M12 16V4m0 0l-4 4m4-4l4 4M4 20h16" />
+                    </svg>
+                  </span>
+                  <span>
+                    <span className="block font-medium">Upload a photo</span>
+                    <span className="block text-sm text-muted">Any size – we frame and sharpen it for you</span>
+                  </span>
                 </span>
-              </span>
-            </button>
+              </button>
+            </div>
             <input
               ref={fileRef}
               type="file"
               accept="image/*"
-              capture="user"
               className="sr-only"
-              aria-label="Choose a selfie"
+              aria-label="Choose a photo"
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 if (f) runAnalysis(f);
@@ -492,6 +545,42 @@ export default function Home() {
           </section>
         )}
 
+        {/* ───────────── Who it's for (impact) ───────────── */}
+        {!plan && phase !== "analyzing" && (
+          <section aria-labelledby="who" className="mx-auto max-w-6xl px-4 sm:px-5 pb-16">
+            <h2 id="who" className="eyebrow mb-4">
+              Who it’s for
+            </h2>
+            <div className="grid md:grid-cols-3 gap-4">
+              <article className="card p-5">
+                <p className="font-serif text-3xl text-rose">~1 in 20</p>
+                <h3 className="mt-1 font-medium">adults live with rosacea</h3>
+                <p className="mt-2 text-sm text-muted leading-relaxed">
+                  A 2018 meta-analysis put adult prevalence at about 5.5%. Most people hide the redness under heavier foundation – which still shows pink through it.
+                </p>
+                <p className="mt-2 text-[11px] text-muted">Gether et al., British Journal of Dermatology, 2018</p>
+              </article>
+              <article className="card p-5">
+                <p className="font-serif text-3xl text-rose">Darker skin</p>
+                <h3 className="mt-1 font-medium">is most affected by dark marks</h3>
+                <p className="mt-2 text-sm text-muted leading-relaxed">
+                  Post-inflammatory hyperpigmentation is more common and longer-lasting in deeper skin tones – yet most corrector advice is written for fair skin and turns ashy on deep skin. CORRECT’s shades
+                  scale across six depths.
+                </p>
+                <p className="mt-2 text-[11px] text-muted">Davis &amp; Callender, J Clin Aesthet Dermatol, 2010</p>
+              </article>
+              <article className="card p-5">
+                <p className="font-serif text-3xl text-rose">For stores</p>
+                <h3 className="mt-1 font-medium">the right shade, first time</h3>
+                <p className="mt-2 text-sm text-muted leading-relaxed">
+                  Correctors are the hardest base product to buy online: shoppers can’t swatch them and the “right” colour depends on their depth. CORRECT turns one selfie into a matched basket from the
+                  store’s own catalogue (CIEDE2000), so fewer wrong-shade buys and returns.
+                </p>
+              </article>
+            </div>
+          </section>
+        )}
+
         {/* ───────────── Progress ───────────── */}
         {phase === "analyzing" && (
           <section id="progress" className="mx-auto max-w-6xl px-5 pb-16 scroll-mt-32 md:scroll-mt-24" aria-live="polite">
@@ -532,9 +621,19 @@ export default function Home() {
                       <p className="font-medium text-lg leading-tight">
                         {plan.profile.depthLabel} skin, {plan.profile.undertone} undertone
                       </p>
-                      <p className="text-xs text-muted">Measured tone {plan.profile.skinHex.toUpperCase()}</p>
+                      <p className="text-xs text-muted">
+                        Measured tone {plan.profile.skinHex.toUpperCase()}
+                        {plan.profile.fitzpatrick ? ` · Fitzpatrick type ${plan.profile.fitzpatrick}` : ""}
+                      </p>
                     </div>
                   </div>
+                  {plan.profile.depthAgreement && plan.profile.depthAgreement !== "unavailable" && (
+                    <p className={`mt-3 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] ${plan.profile.depthAgreement === "override" ? "bg-apricot-soft text-[#8A4A1C]" : "bg-sage-soft text-[#3F6B39]"}`}>
+                      {plan.profile.depthAgreement === "override"
+                        ? "Lighting skewed the colour – shade depth set from the Fitzpatrick model"
+                        : "✓ Two independent measures agree on your skin depth"}
+                    </p>
+                  )}
                   <p className="eyebrow mt-6">What we found</p>
                   <ul className="mt-3 space-y-2.5">
                     {plan.concerns.map((c) => (
@@ -763,9 +862,14 @@ export default function Home() {
                       <span className="text-muted">{kit.length} items · </span>
                       <span className="font-medium">${kit.reduce((a, k) => a + k.product.price, 0)}</span>
                     </p>
-                    <button className="btn-primary !py-3" onClick={() => setBagged(true)} aria-live="polite">
-                      {bagged ? "Added to bag ✓" : "Add kit to bag"}
-                    </button>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      <button className="btn-ghost !py-3" onClick={shareCard} disabled={sharing === "busy"} aria-live="polite">
+                        {sharing === "busy" ? "Creating…" : sharing === "done" ? "Saved ✓" : "Save routine card"}
+                      </button>
+                      <button className="btn-primary !py-3" onClick={() => setBagged(true)} aria-live="polite">
+                        {bagged ? "Added to bag ✓" : "Add kit to bag"}
+                      </button>
+                    </div>
                   </div>
                   <p className="mt-3 text-xs text-muted">Demo catalogue (fictional brand). A store would plug in its own products.</p>
                 </div>
@@ -790,7 +894,15 @@ export default function Home() {
         CORRECT · built on Perfect Corp YouCam APIs (Skin Analysis, Skin Tone Analysis, Makeup VTO) and Gemini · cosmetic guidance only, not medical advice
       </footer>
 
-      {!coachOpen && <CoachLauncher onOpen={openCoach} hasPlan={!!plan} unread={!!summary && !coachSeen} />}
+      <CameraCapture
+        open={cameraOpen}
+        onClose={() => setCameraOpen(false)}
+        onCapture={(b) => {
+          setCameraOpen(false);
+          runAnalysis(b);
+        }}
+      />
+      {!coachOpen && !cameraOpen && <CoachLauncher onOpen={openCoach} hasPlan={!!plan} unread={!!summary && !coachSeen} />}
       <CoachDrawer open={coachOpen} onClose={() => setCoachOpen(false)} coach={coach} hasPlan={!!plan} summary={summary || null} />
     </>
   );

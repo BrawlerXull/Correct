@@ -63,7 +63,13 @@ export type Step = {
 };
 
 export type Plan = {
-  profile: ReturnType<typeof skinProfile> & { skinHex: string; depthLabel: string };
+  profile: ReturnType<typeof skinProfile> & {
+    skinHex: string;
+    depthLabel: string;
+    itaDepth: Depth;
+    fitzpatrick: string | null;
+    depthAgreement: "agree" | "close" | "override" | "unavailable";
+  };
   concerns: { key: string; label: string; ui: number; severity: Severity }[];
   foundationHex: string;
   steps: Step[]; // chained, in order; each step renders on top of the previous one
@@ -79,8 +85,28 @@ const LABEL: Record<string, string> = {
   hd_acne: "Blemishes",
 };
 
-export function buildPlan(skinHex: string, scores: Scores): Plan {
-  const p = skinProfile(skinHex);
+const DEPTHS: Depth[] = ["fair", "light", "medium", "tan", "deep", "rich"];
+const FITZ_INDEX: Record<string, number> = { I: 0, II: 1, III: 2, IV: 3, V: 4, VI: 5 };
+
+/**
+ * Two independent depth signals: our ITA° colorimetry (precise but lighting-sensitive) and YouCam's
+ * Fitzpatrick model (robust to lighting, coarser). If they agree within one band we trust ITA°;
+ * if they disagree by 2+ bands the photo's lighting probably skewed the colour, so Fitzpatrick wins.
+ */
+export function reconcileDepth(itaDepth: Depth, fitz?: string | null) {
+  const fi = fitz ? FITZ_INDEX[fitz] : undefined;
+  if (fi === undefined) return { depth: itaDepth, agreement: "unavailable" as const };
+  const ii = DEPTHS.indexOf(itaDepth);
+  const gap = Math.abs(ii - fi);
+  if (gap === 0) return { depth: itaDepth, agreement: "agree" as const };
+  if (gap === 1) return { depth: itaDepth, agreement: "close" as const };
+  return { depth: DEPTHS[fi], agreement: "override" as const };
+}
+
+export function buildPlan(skinHex: string, scores: Scores, fitz?: string | null): Plan {
+  const measured = skinProfile(skinHex);
+  const rec = reconcileDepth(measured.depth, fitz);
+  const p = { ...measured, depth: rec.depth, itaDepth: measured.depth, fitzpatrick: fitz ?? null, depthAgreement: rec.agreement };
   const concerns = (Object.keys(LABEL) as (keyof Scores)[])
     .filter((k) => scores[k] !== undefined)
     .map((k) => ({ key: k, label: LABEL[k], ui: scores[k]!, severity: severity(scores[k]) }));

@@ -103,3 +103,10 @@ export async function makeupVto(src: Buffer | string, effects: unknown[]) {
   const r = await runTask("makeup-vto", { ...source, version: "1.0", effects });
   return r.results.url as string;
 }
+
+/** AI Fitzpatrick Skin Type (I–VI) – an independent, model-based depth signal used to cross-check our ITA° colorimetry. */
+export async function fitzpatrick(bytes: Buffer): Promise<string | null> {
+  const fileId = await uploadFile("fitzpatrick-scale-analyzer", bytes);
+  const r = await runTask("fitzpatrick-scale-analyzer", { src_file_id: fileId, version: "1.0", index: 0 });
+  return (r.results?.fitzpatrick_scale as string) ?? null;
+}

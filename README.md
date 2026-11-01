@@ -2,6 +2,14 @@
 
 **A colour-correction coach built on the YouCam Skin AI and Makeup VTO APIs.**
 
+**Live demo: https://correct-youcam.vercel.app** · works on phone and desktop · installable PWA · MIT licensed
+
+### For judges: 60-second test
+1. Open the live demo and click a **sample face**. It costs no credits and you can explore everything.
+2. Or tap **Take a guided selfie** (live tips for distance, light and head angle), or **Upload a photo** of any size.
+3. Click **See it on my face** to compare full-coverage foundation with the CORRECT layering on your own photo, with measured results.
+4. Ask the **coach** (bottom right) anything about your plan, and save your **routine card**.
+
 People with redness (rosacea-prone skin), dark under-eye circles or post-acne marks usually try to hide them with *more* foundation. The result looks heavy and the colour still shows through. Makeup artists use **colour correction** instead: the complementary colour cancels the discolouration, so a sheer base is enough.
 
 - Green cancels red.
@@ -12,12 +20,21 @@ The hard part is the shade. A corrector that works on fair skin turns ashy on de
 CORRECT handles that end to end:
 
 1. **Maps where your skin needs correction.** YouCam Skin Analysis (HD) returns per-concern scores and **masks** for redness, dark circles, dark spots and blemishes. CORRECT decodes those masks into a *dab map* drawn in your corrector colours.
-2. **Picks the corrector for your depth and undertone.** YouCam Skin Tone Analysis gives your measured skin colour. CORRECT converts it to CIELAB, computes the **Individual Typology Angle (ITA°)** for skin depth and the hue angle for undertone, then chooses from a 6-depth corrector table.
+2. **Picks the corrector for your depth and undertone.** YouCam Skin Tone Analysis gives your measured skin colour. CORRECT converts it to CIELAB, computes the **Individual Typology Angle (ITA°)** for skin depth and the hue angle for undertone, then chooses from a 6-depth corrector table. YouCam's **Fitzpatrick Skin Type** model is an independent cross-check. If the two disagree by 2+ bands (usually because lighting skewed the colour), the model wins. On all three sample faces the two measures agreed: II = Light, IV = Tan, VI = Rich deep.
 3. **Shows it on your face, layer by layer.** It makes up to four YouCam Makeup VTO calls: a full-coverage baseline, then a **chained** green primer → warm corrector → sheer tint, where each pass is applied on top of the previous pass's result URL.
 4. **Measures the result honestly.** In the browser it measures, inside the YouCam-flagged zones, how visible each concern still is: the **ΔE colour difference** between the flagged area and the skin around it. It compares the corrected look against full-coverage foundation and highlights whichever did better, **even when it's the foundation**.
 5. **Builds a kit and answers questions.** Shades are matched to a store catalogue by **CIEDE2000**. A **Gemini** coach answers follow-ups ("outdoor wedding?", "over active breakouts?") using your actual scan data.
 
 > Cosmetic guidance only — not a medical diagnosis.
+
+## How CORRECT meets the judging criteria
+
+| Criterion | What we built |
+|---|---|
+| **Technological implementation** | **6 YouCam APIs** in one pipeline: Skin Analysis HD (4 concerns + masks), Skin Tone, Fitzpatrick, Photo Enhance, and Makeup VTO (chained foundation/concealer/smoothing layers), plus Text-to-Image for the sample faces. Masks are decoded pixel by pixel, renders are measured in CIELAB, and the CIEDE2000 matching is unit-tested against published reference data. On-device MediaPipe face detection; credit guard (rate limits + daily cap); response caching. |
+| **Design** | A guided flow (Scan → Your plan → Try it on → Your kit) with a scroll-aware step tracker, guided selfie camera, results-at-a-glance card, plain-language explanations, before/after slider, shareable routine card, coach drawer, installable PWA, WCAG-minded focus/keyboard/screen-reader support. |
+| **Potential impact** | A specific, under-served audience (rosacea-prone skin, dark circles, dark marks on deeper skin) for whom "more foundation" fails. The app shows the outcome on the user's own face and measures it, so the claim can be checked. Store value: one selfie becomes a matched basket from the store's own catalogue. |
+| **Quality of idea** | It uses the Skin AI *masks* (where), not just scores (how much), to drive a *Makeup VTO* routine, so Skin AI and VTO work as one. It encodes makeup-artist colour theory scaled by ITA°/Fitzpatrick depth, and designs around API realities we discovered (default smoothing, spot-only concealer, HD size and face-fraction limits). |
 
 ## Results on the three sample faces
 
@@ -49,6 +66,7 @@ CORRECT can be installed on phones and desktops: web manifest, maskable icons, a
 |---|---|---|
 | AI Skin Analysis (HD) | `task/skin-analysis` | `hd_redness`, `hd_dark_circle`, `hd_age_spot`, `hd_acne` scores + raw masks (`format: json`, `enable_mask_overlay: false`) |
 | AI Skin Tone Analysis | `task/skin-tone-analysis` | measured skin hex → ITA° depth + undertone; face-quality check |
+| AI Fitzpatrick Skin Type | `task/fitzpatrick-scale-analyzer` | independent model-based depth (I–VI) used to cross-check ITA° |
 | AI Makeup VTO | `task/makeup-vto` | `foundation`, `concealer` and `skin_smooth` effects; one baseline + chained passes using `src_file_url` of the previous result |
 | File API | `file/{feature}` | signed upload → `file_id` |
 | AI Photo Enhance | `task/enhance` | 2×/4× super-resolution for low-resolution selfies, so HD analysis never rejects them |
@@ -88,6 +106,18 @@ coach ────────────────────────�
 - `src/lib/cache.ts`: disk cache keyed by image and effect hashes, so re-running a photo doesn't spend credits again. Render results are refreshed after 100 minutes because YouCam result URLs expire after 2 hours.
 
 **Cost per live session:** 1 Skin Analysis + 1 Skin Tone Analysis + 3–4 Makeup VTO calls. Sample mode spends no credits.
+
+## Tests
+
+```bash
+npm test     # vitest: colour science (sRGB→CIELAB, ITA°), CIEDE2000 vs Sharma et al. reference pairs,
+             # rule engine (severity, shade choice by depth, no green on deep skin, smoothing off),
+             # Fitzpatrick reconciliation, catalogue coverage (ΔE2000 < 3 across fair→rich)
+```
+
+## Credit guard (public demo)
+
+Each live scan spends YouCam credits, so the API routes are rate-limited per visitor (8 scans, 40 renders and 40 coach messages per 10 minutes), and uncached scans have a daily cap (`DAILY_SCAN_CAP`, default 150). Repeat runs of the same photo are served from cache, and sample faces never call the API.
 
 ## Run it locally
 

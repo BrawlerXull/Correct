@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { skinAnalysis, skinTone, toDataUrl } from "@/lib/youcam";
+import { fitzpatrick, skinAnalysis, skinTone, toDataUrl } from "@/lib/youcam";
 import { buildPlan, Scores } from "@/lib/rules";
 import { cached, hash } from "@/lib/cache";
 import { ensureHdSize } from "@/lib/imageprep";
+import { checkLimit, takeDailyScan } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -21,17 +22,22 @@ const FRIENDLY: [RegExp, string][] = [
 
 export async function POST(req: Request) {
   try {
+    const limited = checkLimit("analyze", req);
+    if (limited) return NextResponse.json({ error: limited }, { status: 429 });
     const form = await req.formData();
     const file = form.get("image");
     if (!(file instanceof Blob)) return NextResponse.json({ error: "No image uploaded" }, { status: 400 });
     if (file.size > 9_500_000) return NextResponse.json({ error: "That photo is too large (max ~9 MB)." }, { status: 400 });
     const original = Buffer.from(await file.arrayBuffer());
 
-    const result = await cached("analyze2-" + hash(original), async () => {
+    const result = await cached("analyze3-" + hash(original), async () => {
+      const capped = takeDailyScan(); // only uncached scans spend credits
+      if (capped) throw new Error("DAILY_CAP: " + capped);
       // Guarantee YouCam HD size requirements (AI-enhance small photos).
       const prepared = await ensureHdSize(original);
       const bytes = prepared.bytes;
-      const [skin, tone] = await Promise.all([skinAnalysis(bytes), skinTone(bytes)]);
+      // Three YouCam Skin APIs in parallel; Fitzpatrick is an optional cross-check, never blocks the scan.
+      const [skin, tone, fitz] = await Promise.all([skinAnalysis(bytes), skinTone(bytes), fitzpatrick(bytes).catch(() => null)]);
       const scores: Scores = {};
       const masks: Record<string, string> = {};
       await Promise.all(
@@ -46,6 +52,7 @@ export async function POST(req: Request) {
         scores,
         masks,
         tone: tone.color,
+        fitzpatrick: fitz,
         quality: tone.face_quality ?? null,
         overall: skin.find((o) => o.type === "all")?.score,
         skinAge: skin.find((o) => o.type === "skin_age")?.score,
@@ -55,10 +62,11 @@ export async function POST(req: Request) {
       };
     });
 
-    const plan = buildPlan(result.tone.skin_color, result.scores);
+    const plan = buildPlan(result.tone.skin_color, result.scores, (result as { fitzpatrick?: string | null }).fitzpatrick);
     return NextResponse.json({ ...result, plan });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    if (msg.startsWith("DAILY_CAP: ")) return NextResponse.json({ error: msg.slice(11) }, { status: 429 });
     const friendly = FRIENDLY.find(([re]) => re.test(msg))?.[1];
     console.error("[analyze]", msg);
     return NextResponse.json({ error: friendly || "Something went wrong analysing that photo. Please try another one.", detail: msg }, { status: 500 });

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { generate, geminiConfigured } from "@/lib/gemini";
+import { checkLimit } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -22,6 +23,8 @@ Formatting (very important – the answer is shown in a small chat panel):
 
 export async function POST(req: Request) {
   try {
+    const limited = checkLimit("coach", req);
+    if (limited) return NextResponse.json({ text: limited });
     if (!geminiConfigured()) return NextResponse.json({ text: null, error: "Coach unavailable (no Gemini key)" });
     const { context, question, history } = await req.json();
     const convo = Array.isArray(history)

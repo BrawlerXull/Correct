@@ -11,7 +11,7 @@ import { loadImage } from "./measure";
 
 let detectorP: Promise<FaceDetector> | null = null;
 
-function getDetector() {
+export function getDetector() {
   if (!detectorP) {
     detectorP = (async () => {
       const { FaceDetector, FilesetResolver } = await import("@mediapipe/tasks-vision");

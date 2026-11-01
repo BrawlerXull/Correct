@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { makeupVto, toDataUrl } from "@/lib/youcam";
 import { cached, hash } from "@/lib/cache";
+import { checkLimit } from "@/lib/ratelimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -11,6 +12,8 @@ export const maxDuration = 60;
  */
 export async function POST(req: Request) {
   try {
+    const limited = checkLimit("render", req);
+    if (limited) return NextResponse.json({ error: limited }, { status: 429 });
     const { image, srcUrl, effects, key } = await req.json();
     if (!Array.isArray(effects)) return NextResponse.json({ error: "effects required" }, { status: 400 });
     let src: Buffer | string;
