@@ -29,6 +29,20 @@ These are AI-generated faces (YouCam text-to-image), so no real person is shown.
 | Dark circles, tan/warm skin | apricot under-eye corrector → 38% tint | **38%** vs 95% | Dark-circle visibility ΔE 8.5 → **3.9** (foundation alone: 4.9) |
 | Post-acne marks, rich deep skin | brick-red corrector → 42% tint | **42%** vs 95% | Under-eye visibility ΔE 13.6 → **10.7** (foundation alone: 11.4). Raised marks: full-coverage foundation conceals texture better, and the app says so. |
 
+## Works with any selfie: automatic photo preparation
+
+YouCam HD Skin Analysis has strict input rules: the **short side must be at least 1080 px** and the **face must be wider than 60% of the image**. Real uploads (landscape phone shots, webcam grabs, small screenshots) often break them, which would make the API return `error_below_min_image_size` or `error_src_face_too_small`. CORRECT handles both automatically:
+
+1. **On-device face framing.** MediaPipe BlazeFace runs in the browser (self-hosted WASM, free, about 20 ms, nothing uploaded). It finds the face and crops a 3:4 portrait so the face fills about 70% of the width. If no face is found, the user gets a clear message before any credits are spent.
+2. **AI upscaling.** If the crop is still under 1080 px, the server upscales it 2× or 4× with **YouCam AI Photo Enhance** (real super-resolution, 2 credits), then Lanczos-resizes it to 1200×1600. If Enhance is unavailable, it falls back to a plain resample.
+3. The app shows what it did ("framed around your face; sharpened 4× with YouCam AI Photo Enhance"). Every later step (masks, renders, measurements) uses that exact prepared image, so the layers line up.
+
+Skin Tone Analysis runs with `face_angle_strictness_level: "low"`, because colour sampling doesn't need a perfectly frontal pose.
+
+## Installable app (PWA)
+
+CORRECT can be installed on phones and desktops: web manifest, maskable icons, a service worker and an "Install app" button. The app shell, sample faces and face-detector files are cached, so the samples and the UI keep working offline. `/api/*` is never cached.
+
 ## YouCam APIs used
 
 | API | Endpoint | Used for |
@@ -37,6 +51,7 @@ These are AI-generated faces (YouCam text-to-image), so no real person is shown.
 | AI Skin Tone Analysis | `task/skin-tone-analysis` | measured skin hex → ITA° depth + undertone; face-quality check |
 | AI Makeup VTO | `task/makeup-vto` | `foundation`, `concealer` and `skin_smooth` effects; one baseline + chained passes using `src_file_url` of the previous result |
 | File API | `file/{feature}` | signed upload → `file_id` |
+| AI Photo Enhance | `task/enhance` | 2×/4× super-resolution for low-resolution selfies, so HD analysis never rejects them |
 | AI Image Generator V2 | `task/text-to-image/youcam` | generating the sample faces (`scripts/build-samples.py`) |
 
 ### Things we learned about the API, and how we designed around them
@@ -78,7 +93,7 @@ coach ────────────────────────�
 
 ```bash
 cp .env.example .env.local   # add YOUCAM_API_KEY and GEMINI_API_KEYS
-npm install
+npm install                  # postinstall copies the MediaPipe WASM into public/mediapipe/wasm
 npm run dev                  # http://localhost:3000
 ```
 

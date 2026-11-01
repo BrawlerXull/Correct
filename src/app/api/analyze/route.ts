@@ -2,19 +2,35 @@ import { NextResponse } from "next/server";
 import { skinAnalysis, skinTone, toDataUrl } from "@/lib/youcam";
 import { buildPlan, Scores } from "@/lib/rules";
 import { cached, hash } from "@/lib/cache";
+import { ensureHdSize } from "@/lib/imageprep";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
+
+// YouCam error codes -> advice a shopper can act on.
+const FRIENDLY: [RegExp, string][] = [
+  [/error_no_face/, "We couldn't find a face. Use a front-facing photo with your whole face visible."],
+  [/error_pose|faceangle|error_face_angle/, "Please face the camera straight on (head not tilted or turned) and try again."],
+  [/error_src_face_too_small|face_position_too_small/, "Your face is too small in the photo. Move closer to the camera, or crop the photo around your face."],
+  [/error_src_face_out_of_bound|out_of_boundary/, "Part of your face is cut off. Make sure your whole face, forehead to chin, is in the photo."],
+  [/below_min_image_size/, "That photo's resolution is too low, even after enhancing. Please try a sharper photo."],
+  [/exceed_max/, "That photo is too large. Please try a smaller one (under 10 MB)."],
+  [/error_lighting|lighting/, "The lighting is too dark or uneven. Try facing a window in daylight."],
+  [/nsfw/, "That photo couldn't be processed. Please use a simple selfie."],
+];
 
 export async function POST(req: Request) {
   try {
     const form = await req.formData();
     const file = form.get("image");
     if (!(file instanceof Blob)) return NextResponse.json({ error: "No image uploaded" }, { status: 400 });
-    if (file.size > 9_500_000) return NextResponse.json({ error: "Image too large (max ~9 MB)" }, { status: 400 });
-    const bytes = Buffer.from(await file.arrayBuffer());
+    if (file.size > 9_500_000) return NextResponse.json({ error: "That photo is too large (max ~9 MB)." }, { status: 400 });
+    const original = Buffer.from(await file.arrayBuffer());
 
-    const result = await cached("analyze-" + hash(bytes), async () => {
+    const result = await cached("analyze2-" + hash(original), async () => {
+      // Guarantee YouCam HD size requirements (AI-enhance small photos).
+      const prepared = await ensureHdSize(original);
+      const bytes = prepared.bytes;
       const [skin, tone] = await Promise.all([skinAnalysis(bytes), skinTone(bytes)]);
       const scores: Scores = {};
       const masks: Record<string, string> = {};
@@ -26,20 +42,25 @@ export async function POST(req: Request) {
           }
         })
       );
-      const overall = skin.find((o) => o.type === "all")?.score;
-      const skinAge = skin.find((o) => o.type === "skin_age")?.score;
-      return { scores, masks, tone: tone.color, quality: tone.face_quality ?? null, overall, skinAge };
+      return {
+        scores,
+        masks,
+        tone: tone.color,
+        quality: tone.face_quality ?? null,
+        overall: skin.find((o) => o.type === "all")?.score,
+        skinAge: skin.find((o) => o.type === "skin_age")?.score,
+        // The exact image that was analysed – the client uses it for masks, renders and measurement.
+        photo: `data:image/jpeg;base64,${bytes.toString("base64")}`,
+        prep: { width: prepared.width, height: prepared.height, upscale: prepared.upscale, enhanceScale: prepared.enhanceScale ?? null },
+      };
     });
 
     const plan = buildPlan(result.tone.skin_color, result.scores);
     return NextResponse.json({ ...result, plan });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    const friendly = msg.includes("error_no_face")
-      ? "We couldn't find a face. Use a front-facing photo with your whole face visible."
-      : msg.includes("error_pose")
-      ? "Please face the camera straight on (no tilted head) and try again."
-      : msg;
-    return NextResponse.json({ error: friendly }, { status: 500 });
+    const friendly = FRIENDLY.find(([re]) => re.test(msg))?.[1];
+    console.error("[analyze]", msg);
+    return NextResponse.json({ error: friendly || "Something went wrong analysing that photo. Please try another one.", detail: msg }, { status: 500 });
   }
 }

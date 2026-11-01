@@ -6,6 +6,7 @@ html {
   scroll-behavior: smooth;
 }
 
+@layer components {
 .card {
   @apply bg-white/80 border border-line rounded-2xl shadow-card;
 }
@@ -24,6 +25,7 @@ html {
 }
 .eyebrow {
   @apply text-[11px] uppercase tracking-[0.18em] text-muted font-medium;
+}
 }
 
 @keyframes shimmer {

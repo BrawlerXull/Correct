@@ -7,6 +7,8 @@ export type Analysis = {
   quality: Record<string, string | boolean> | null;
   overall?: number;
   skinAge?: number;
+  photo?: string; // exact image analysed (after on-device crop + server upscaling)
+  prep?: { width: number; height: number; upscale: "none" | "ai-enhance" | "resample"; enhanceScale: number | null };
   plan: Plan;
 };
 

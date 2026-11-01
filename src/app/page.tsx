@@ -3,7 +3,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CompareSlider from "@/components/CompareSlider";
 import CoachDrawer, { CoachAvatar, CoachLauncher, useCoach } from "@/components/Coach";
 import RichText from "@/components/RichText";
-import { dabMap, measure, Metrics, normalisePhoto, Zones, zonesFromMasks } from "@/lib/measure";
+import { InstallButton } from "@/components/Pwa";
+import { dabMap, measure, Metrics, Zones, zonesFromMasks } from "@/lib/measure";
+import { preparePhoto, preloadFaceDetector, PrepError, PrepInfo } from "@/lib/prep";
 import { closest } from "@/lib/catalog";
 import type { Analysis, SampleBundle } from "@/lib/types";
 
@@ -65,6 +67,8 @@ export default function Home() {
   const [bagged, setBagged] = useState(false);
   const [coachOpen, setCoachOpen] = useState(false);
   const [coachSeen, setCoachSeen] = useState(false);
+  const [prepNote, setPrepNote] = useState<string | null>(null);
+  const [visibleSection, setVisibleSection] = useState<string>("start");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const plan = analysis?.plan;
@@ -83,7 +87,29 @@ export default function Home() {
     setBagged(false);
     setView("dab");
     setCoachSeen(false);
+    setPrepNote(null);
   };
+
+  // Warm up the on-device face detector so the first upload is instant.
+  useEffect(() => {
+    preloadFaceDetector();
+  }, []);
+
+  // Scroll-spy: highlight the step whose section is currently in view.
+  useEffect(() => {
+    const ids = ["start", "results", "tryon", "kit"];
+    const els = ids.map((id) => document.getElementById(id)).filter(Boolean) as HTMLElement[];
+    if (!els.length) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        const vis = entries.filter((e) => e.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (vis[0]) setVisibleSection(vis[0].target.id);
+      },
+      { rootMargin: "-30% 0px -55% 0px", threshold: [0, 0.25, 0.5, 1] }
+    );
+    els.forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [phase, analysis]);
 
   useEffect(() => {
     if (!analysis || !photo) return;
@@ -145,21 +171,24 @@ export default function Home() {
     setPhase("analyzing");
     setTimeout(() => scrollTo("progress"), 50);
     try {
-      setStatus("Preparing your photo…");
-      const { dataUrl, blob } = await normalisePhoto(file);
-      setPhoto(dataUrl);
-      setStatus("Scanning for redness, dark circles, spots and blemishes, and measuring your skin tone…");
+      setStatus("Finding your face and framing the photo (on your device)…");
+      const prepped = await preparePhoto(file);
+      setPhoto(prepped.dataUrl);
+      setStatus("Scanning for redness, dark circles, spots and blemishes (low-resolution photos are sharpened first with YouCam AI Photo Enhance)…");
       const fd = new FormData();
-      fd.append("image", blob, "selfie.jpg");
+      fd.append("image", prepped.blob, "selfie.jpg");
       const r = await fetch("/api/analyze", { method: "POST", body: fd });
       const j = await r.json();
       if (!r.ok || j.error) throw new Error(j.error || "Analysis failed");
+      if (j.photo) setPhoto(j.photo); // exactly what YouCam analysed – keeps masks and renders aligned
+      setPrepNote(describePrep(prepped.info, j.prep));
       setAnalysis(j);
       setPhase("analyzed");
       setTimeout(() => scrollTo("results"), 120);
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(e instanceof PrepError || e instanceof Error ? e.message : String(e));
       setPhase("idle");
+      setTimeout(() => scrollTo("start"), 50);
     }
   }
 
@@ -243,8 +272,11 @@ export default function Home() {
     });
   }, [plan]);
 
-  const currentStep = phase === "idle" || phase === "analyzing" ? 0 : phase === "analyzed" ? 1 : 2;
   const stepAvailable = (i: number) => i === 0 || (i === 1 && !!plan) || (i === 2 && (phase === "rendering" || phase === "done")) || (i === 3 && !!plan);
+  const progressStep = phase === "idle" || phase === "analyzing" ? 0 : phase === "analyzed" ? 1 : phase === "rendering" ? 2 : 3;
+  const spyIdx = STEPS.findIndex((s) => s.id === visibleSection);
+  // Highlight where the user IS (scroll position); fall back to how far they've progressed.
+  const currentStep = plan && spyIdx >= 0 && stepAvailable(spyIdx) ? spyIdx : progressStep;
   const mapImg = view === "dab" ? dab : photo;
 
   return (
@@ -264,7 +296,7 @@ export default function Home() {
             <ol className="flex items-center justify-center gap-1">
               {STEPS.map((s, i) => {
                 const avail = stepAvailable(i);
-                const done = i < currentStep;
+                const done = i < progressStep && i !== currentStep;
                 const current = i === currentStep;
                 return (
                   <li key={s.id} className="flex items-center">
@@ -286,16 +318,42 @@ export default function Home() {
             </ol>
           </nav>
           <div className="ml-auto flex items-center gap-2">
+            <InstallButton className="hidden sm:inline-flex" />
             <button onClick={openCoach} className="btn-ghost !py-2 hidden sm:inline-flex">
               <CoachAvatar size={22} /> Ask the coach
             </button>
           </div>
         </div>
+        {/* Mobile progress */}
+        <nav aria-label="Progress" className="md:hidden border-t border-line/70">
+          <ol className="mx-auto max-w-6xl px-3 py-2 grid grid-cols-4 gap-1.5">
+            {STEPS.map((s, i) => {
+              const avail = stepAvailable(i);
+              const current = i === currentStep;
+              const done = i < progressStep && !current;
+              return (
+                <li key={s.id}>
+                  <button
+                    onClick={() => avail && scrollTo(s.id)}
+                    disabled={!avail}
+                    aria-current={current ? "step" : undefined}
+                    className="w-full text-left disabled:opacity-50"
+                  >
+                    <span className={`block h-1.5 rounded-full ${current ? "bg-ink" : done ? "bg-sage" : "bg-line"}`} />
+                    <span className={`mt-1 block truncate text-[11px] ${current ? "font-semibold text-ink" : "text-muted"}`}>
+                      {i + 1}. {s.label}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
       </header>
 
-      <main id="main" className="min-h-screen">
+      <main id="main" className="min-h-screen pb-24 sm:pb-8">
         {/* ───────────── Hero: what this is + start ───────────── */}
-        <section id="top" className="mx-auto max-w-6xl px-5 pt-10 md:pt-14 pb-10 grid lg:grid-cols-[1.1fr_1fr] gap-10 items-start">
+        <section id="top" className="mx-auto max-w-6xl px-4 sm:px-5 pt-8 md:pt-14 pb-10 grid lg:grid-cols-[1.1fr_1fr] gap-8 lg:gap-10 items-start">
           <div className="lg:pt-6">
             <p className="eyebrow">AI colour-correction coach</p>
             <h1 className="font-serif text-4xl md:text-6xl leading-[1.05] mt-3">
@@ -322,7 +380,7 @@ export default function Home() {
           </div>
 
           {/* Start card */}
-          <div id="start" className="card p-6 md:p-7 scroll-mt-24">
+          <div id="start" className="card p-6 md:p-7 scroll-mt-32 md:scroll-mt-24">
             <h2 className="font-serif text-2xl">Start here</h2>
             <p className="text-sm text-muted mt-1">Takes about 15 seconds. No account needed.</p>
 
@@ -436,7 +494,7 @@ export default function Home() {
 
         {/* ───────────── Progress ───────────── */}
         {phase === "analyzing" && (
-          <section id="progress" className="mx-auto max-w-6xl px-5 pb-16 scroll-mt-24" aria-live="polite">
+          <section id="progress" className="mx-auto max-w-6xl px-5 pb-16 scroll-mt-32 md:scroll-mt-24" aria-live="polite">
             <div className="card p-6 flex items-center gap-4">
               <div className="h-10 w-10 rounded-full border-2 border-line border-t-rose animate-spin motion-reduce:animate-none" aria-hidden />
               <div>
@@ -450,8 +508,13 @@ export default function Home() {
         {analysis && plan && photo && (
           <>
             {/* ───────────── 2. Results at a glance ───────────── */}
-            <section id="results" className="mx-auto max-w-6xl px-5 pb-14 scroll-mt-24">
+            <section id="results" className="mx-auto max-w-6xl px-5 pb-14 scroll-mt-32 md:scroll-mt-24">
               <SectionHeader n={2} title="Your results" sub="What the scan found, and the routine we built for your skin." />
+              {prepNote && !sample && (
+                <p className="mb-4 rounded-xl bg-sage-soft px-4 py-2.5 text-sm text-ink/80" role="status">
+                  <strong className="font-medium">Photo prepared:</strong> {prepNote}
+                </p>
+              )}
               {sample && (
                 <p className="mb-4 rounded-xl bg-sand px-4 py-2.5 text-sm text-ink/80">
                   <strong className="font-medium">Sample mode:</strong> real YouCam API results, pre-computed for an AI-generated face. Upload your own selfie for a live scan.
@@ -632,7 +695,7 @@ export default function Home() {
 
             {/* ───────────── 3. Try it on ───────────── */}
             {(phase === "rendering" || phase === "done") && (
-              <section id="tryon" className="mx-auto max-w-6xl px-5 pb-14 scroll-mt-24">
+              <section id="tryon" className="mx-auto max-w-6xl px-5 pb-14 scroll-mt-32 md:scroll-mt-24">
                 <SectionHeader n={3} title="Try it on: the usual fix vs. the CORRECT fix" sub="Both applied to your photo by YouCam’s virtual makeup try-on. No beauty filter, skin texture is kept." />
                 {phase === "rendering" && (
                   <p className="mb-4 text-sm text-muted" aria-live="polite">
@@ -644,7 +707,7 @@ export default function Home() {
                     {error}
                   </p>
                 )}
-                <div className="grid md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-2 sm:gap-4">
                   <Panel label="Before" sub="Bare skin" img={photo} />
                   <Panel label="The usual fix" sub={`Full-coverage foundation (${plan.heavyCoverage}%)`} img={heavy} />
                   <Panel label="The CORRECT fix" sub={`Corrector + sheer tint (${plan.correctedCoverage}%)`} img={finalImg} accent />
@@ -675,7 +738,7 @@ export default function Home() {
             )}
 
             {/* ───────────── 4. Kit ───────────── */}
-            <section id="kit" className="mx-auto max-w-6xl px-5 pb-24 scroll-mt-24">
+            <section id="kit" className="mx-auto max-w-6xl px-5 pb-24 scroll-mt-32 md:scroll-mt-24">
               <SectionHeader n={4} title="Your kit" sub="The closest shades in the store, matched to your target colours." />
               <div className="grid lg:grid-cols-[1.3fr_1fr] gap-6 items-start">
                 <div className="card p-5">
@@ -707,13 +770,13 @@ export default function Home() {
                   <p className="mt-3 text-xs text-muted">Demo catalogue (fictional brand). A store would plug in its own products.</p>
                 </div>
 
-                <div className="card p-6 bg-ink text-cream !border-ink">
+                <div className="rounded-2xl bg-ink text-cream p-6 shadow-card">
                   <CoachAvatar size={48} />
                   <h3 className="mt-4 font-serif text-2xl">Not sure how to use it?</h3>
                   <p className="mt-2 text-cream/80 text-[15px] leading-relaxed">
                     Your coach already knows your scan and your shades. Ask how much to use, which brush, or how to adapt it for an event.
                   </p>
-                  <button onClick={openCoach} className="mt-5 btn w-full !py-3 bg-cream text-ink hover:bg-white">
+                  <button onClick={openCoach} className="mt-5 btn w-full !py-3 bg-cream text-ink hover:bg-white focus-visible:ring-4 focus-visible:ring-white/40">
                     Chat with the coach
                   </button>
                 </div>
@@ -731,6 +794,17 @@ export default function Home() {
       <CoachDrawer open={coachOpen} onClose={() => setCoachOpen(false)} coach={coach} hasPlan={!!plan} summary={summary || null} />
     </>
   );
+}
+
+function describePrep(info: PrepInfo, server?: { upscale: string; enhanceScale: number | null; width: number; height: number }) {
+  const parts: string[] = [];
+  if (info.cropped) parts.push("framed around your face");
+  if (server?.upscale === "ai-enhance") parts.push(`sharpened ${server.enhanceScale}× with YouCam AI Photo Enhance (your photo was low-resolution)`);
+  else if (server?.upscale === "resample") parts.push("upscaled to the resolution the skin scan needs");
+  if (info.faces > 1) parts.push(`${info.faces} faces found – we used the largest`);
+  if (!parts.length) return null;
+  const s = parts.join("; ");
+  return s.charAt(0).toUpperCase() + s.slice(1) + ".";
 }
 
 function Logo() {
@@ -767,7 +841,7 @@ function MatchBadge({ dE }: { dE: number }) {
 
 function Panel({ label, sub, img, accent }: { label: string; sub: string; img: string | null; accent?: boolean }) {
   return (
-    <figure className={`card p-2 ${accent ? "ring-2 ring-sage" : ""}`}>
+    <figure className={`card p-1 sm:p-2 ${accent ? "ring-2 ring-sage" : ""}`}>
       <div className="relative overflow-hidden rounded-xl bg-sand aspect-[3/4]">
         {img ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -775,11 +849,11 @@ function Panel({ label, sub, img, accent }: { label: string; sub: string; img: s
         ) : (
           <div className="absolute inset-0 skeleton grid place-items-center text-sm text-muted">Applying…</div>
         )}
-        {accent && <span className="absolute left-3 top-3 rounded-full bg-sage px-2.5 py-1 text-[11px] font-medium text-white">Recommended</span>}
+        {accent && <span className="absolute left-1.5 top-1.5 sm:left-3 sm:top-3 rounded-full bg-sage px-2 sm:px-2.5 py-0.5 sm:py-1 text-[9px] sm:text-[11px] font-medium text-white">Recommended</span>}
       </div>
-      <figcaption className="px-2 py-2.5">
-        <span className={`block font-medium ${accent ? "text-ink" : ""}`}>{label}</span>
-        <span className="block text-sm text-muted">{sub}</span>
+      <figcaption className="px-1 sm:px-2 py-2 sm:py-2.5">
+        <span className={`block text-xs sm:text-base font-medium leading-tight ${accent ? "text-ink" : ""}`}>{label}</span>
+        <span className="block text-[10px] sm:text-sm text-muted leading-tight mt-0.5">{sub}</span>
       </figcaption>
     </figure>
   );
@@ -864,7 +938,7 @@ function MetricsCard({ metrics, plan }: { metrics: { bare: Metrics; heavy: Metri
             For every area YouCam flagged, we compare its colour with the skin right around it (CIELAB ΔE). The smaller the difference, the less you notice it. The bar shows how much that difference
             shrank compared with your bare skin.
           </p>
-          <table className="w-full text-xs mt-2">
+          <div className="overflow-x-auto"><table className="w-full min-w-[320px] text-xs mt-2">
             <thead>
               <tr className="text-left">
                 <th className="font-medium py-1">Concern (ΔE, lower = better)</th>
@@ -891,7 +965,7 @@ function MetricsCard({ metrics, plan }: { metrics: { bare: Metrics; heavy: Metri
                 </tr>
               )}
             </tbody>
-          </table>
+          </table></div>
           <p>Differences under {TIE} ΔE are invisible, so they count as a tie. We show the result honestly either way.</p>
         </div>
       </details>

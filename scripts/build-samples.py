@@ -41,6 +41,7 @@ for arg in sys.argv[2:]:
         save_data_url(du, os.path.join(out, f"mask-{k}.png"))
         masks[k] = f"/samples/{sid}/mask-{k}.png"
     a["masks"] = masks
+    a.pop("photo", None)  # the bundle references photo.jpg instead
     plan = a["plan"]
     data_url = "data:image/jpeg;base64," + base64.b64encode(img).decode()
     h = post_json("/api/render", {"image": data_url, "effects": plan["heavyEffects"], "key": f"sample-{sid}-heavy"})

@@ -51,7 +51,8 @@ export function CoachLauncher({ onOpen, hasPlan, unread }: { onOpen: () => void;
   return (
     <button
       onClick={onOpen}
-      className="fixed bottom-5 right-5 z-40 flex items-center gap-3 rounded-full bg-ink text-cream pl-2 pr-5 py-2 shadow-xl hover:bg-black focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose/40 transition"
+      style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)" }}
+      className="fixed right-4 sm:right-5 z-40 flex items-center gap-3 rounded-full bg-ink text-cream pl-2 pr-4 sm:pr-5 py-2 shadow-xl hover:bg-black focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-rose/40 transition"
       aria-label={hasPlan ? "Ask the coach about your plan" : "Ask the colour-correction coach"}
     >
       <span className="relative">
@@ -60,7 +61,7 @@ export function CoachLauncher({ onOpen, hasPlan, unread }: { onOpen: () => void;
       </span>
       <span className="text-left leading-tight">
         <span className="block text-sm font-medium">Ask the coach</span>
-        <span className="block text-[11px] text-cream/70">{hasPlan ? "Questions about your plan" : "Colour-correction help"}</span>
+        <span className="hidden sm:block text-[11px] text-cream/70">{hasPlan ? "Questions about your plan" : "Colour-correction help"}</span>
       </span>
     </button>
   );
@@ -118,7 +119,7 @@ export default function CoachDrawer({
         aria-labelledby="coach-title"
         className="absolute right-0 top-0 h-full w-full sm:w-[440px] bg-cream shadow-2xl flex flex-col sm:rounded-l-3xl"
       >
-        <header className="flex items-center gap-3 px-5 py-4 border-b border-line">
+        <header className="flex items-center gap-3 px-4 sm:px-5 py-3 sm:py-4 border-b border-line" style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 12px)" }}>
           <CoachAvatar size={40} />
           <div className="flex-1">
             <h2 id="coach-title" className="font-medium">
@@ -184,7 +185,7 @@ export default function CoachDrawer({
           )}
         </div>
 
-        <footer className="border-t border-line px-5 pt-3 pb-5 bg-cream">
+        <footer className="border-t border-line px-4 sm:px-5 pt-3 bg-cream" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)" }}>
           <p className="text-[11px] uppercase tracking-wider text-muted mb-2">Suggested questions</p>
           <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
             {suggestions.map((s) => (

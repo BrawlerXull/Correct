@@ -89,7 +89,8 @@ export async function skinAnalysis(bytes: Buffer) {
 
 export async function skinTone(bytes: Buffer) {
   const fileId = await uploadFile("skin-tone-analysis", bytes);
-  const r = await runTask("skin-tone-analysis", { src_file_id: fileId });
+  // Skin colour doesn't need a perfectly frontal pose – be forgiving so real-world selfies pass.
+  const r = await runTask("skin-tone-analysis", { src_file_id: fileId, face_angle_strictness_level: "low" });
   return r.results as {
     color: { skin_color: string; eye_color: string; lip_color: string; eyebrow_color: string };
     face_quality?: Record<string, string | boolean>;
