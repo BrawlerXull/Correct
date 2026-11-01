@@ -1,6 +1,6 @@
 // CORRECT service worker – makes the app installable and keeps the shell, samples and face detector available offline.
 // API calls (/api/*) are never cached: they need live YouCam / Gemini results.
-const VERSION = "correct-v1";
+const VERSION = "correct-v2";
 const SHELL = ["/", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {

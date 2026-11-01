@@ -11,7 +11,16 @@ export const metadata: Metadata = {
     "Cancel the colour, not your skin. CORRECT reads redness, dark circles and dark spots with YouCam Skin AI, picks the corrector shade for your depth and undertone, and shows the result on your own face.",
   applicationName: "CORRECT",
   appleWebApp: { capable: true, title: "CORRECT", statusBarStyle: "default" },
-  icons: { apple: "/icons/apple-touch-icon.png" },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icons/icon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16.png", sizes: "16x16", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/icons/apple-touch-icon.png",
+  },
   formatDetection: { telephone: false },
 };
 
