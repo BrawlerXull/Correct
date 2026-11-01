@@ -13,7 +13,7 @@ type View = "photo" | "dab" | "hd_redness" | "hd_dark_circle" | "hd_age_spot" | 
 const SAMPLES = [
   { id: "redness", label: "Redness-prone", blurb: "Flushed cheeks & nose" },
   { id: "undereye", label: "Dark circles", blurb: "Blue-violet under-eye" },
-  { id: "spots", label: "Dark spots", blurb: "Post-blemish marks, deep skin" },
+  { id: "spots", label: "Blemishes & marks", blurb: "Post-acne marks, deep skin" },
 ];
 
 const CONCERN_LABEL: Record<string, string> = {
@@ -99,7 +99,7 @@ export default function Home() {
       measured_result: metrics
         ? {
             redness_a_star: { bare: metrics.bare.rednessA, full_coverage_foundation: metrics.heavy.rednessA, correct_method: metrics.correct.rednessA },
-            under_eye_lightness_L_star: { bare: metrics.bare.underEyeL, full_coverage_foundation: metrics.heavy.underEyeL, correct_method: metrics.correct.underEyeL },
+            visibility_deltaE_vs_surrounding_skin_lower_is_better: { bare: metrics.bare.visibility, full_coverage_foundation: metrics.heavy.visibility, correct_method: metrics.correct.visibility },
           }
         : "not rendered yet",
     };
@@ -514,31 +514,46 @@ function Thumb({ label, img, swatch }: { label: string; img: string | null; swat
   );
 }
 
+const ZONE_CONCERNS: Record<string, string[]> = { redness: ["hd_redness"], darkCircle: ["hd_dark_circle"], spots: ["hd_age_spot", "hd_acne"] };
+const ZONE_LABEL: Record<string, string> = { redness: "Redness", darkCircle: "Dark circles", spots: "Spots & marks" };
+
 function MetricsCard({ metrics, plan }: { metrics: { bare: Metrics; heavy: Metrics; correct: Metrics } | null; plan: NonNullable<Analysis["plan"]> }) {
   if (!metrics) return <div className="card p-5 skeleton h-48" />;
-  const rows: { label: string; unit: string; bare?: number; heavy?: number; correct?: number; better: "lower" | "higher"; note: string }[] = [];
-  if (metrics.bare.rednessA !== undefined)
-    rows.push({ label: "Redness in flagged zones", unit: "a*", bare: metrics.bare.rednessA, heavy: metrics.heavy.rednessA, correct: metrics.correct.rednessA, better: "lower", note: "CIELAB a* (red–green axis), averaged over the pixels YouCam flagged for redness." });
-  if (metrics.bare.underEyeL !== undefined)
-    rows.push({ label: "Under-eye brightness", unit: "L*", bare: metrics.bare.underEyeL, heavy: metrics.heavy.underEyeL, correct: metrics.correct.underEyeL, better: "higher", note: "CIELAB L* inside YouCam’s dark-circle mask." });
-  const pct = (b?: number, x?: number, better?: "lower" | "higher") => {
-    if (b === undefined || x === undefined) return "";
-    const d = better === "lower" ? (b - x) / Math.abs(b) : (x - b) / Math.abs(b);
-    return `${d >= 0 ? "−" : "+"}${Math.abs(d * 100).toFixed(0)}%`.replace("−", better === "lower" ? "−" : "+");
-  };
+  const active = (zone: string) => plan.concerns.some((c) => ZONE_CONCERNS[zone].includes(c.key) && c.severity !== "none");
+  const TIE = 0.3; // ΔE below ~0.3 is imperceptible – count as a tie
+  type Row = { key: string; label: string; unit: string; bare?: number; heavy?: number; correct?: number; note: string };
+  const rows: Row[] = [];
+  for (const zone of ["redness", "darkCircle", "spots"] as const) {
+    // Skip zones that are barely visible on bare skin (ΔE < 2.5) – measuring "improvement" there is just noise.
+    const bareVis = metrics.bare.visibility[zone];
+    if (!active(zone) || bareVis === undefined || bareVis < 2.5) continue;
+    rows.push({
+      key: zone,
+      label: `${ZONE_LABEL[zone]} – how visible`,
+      unit: "ΔE",
+      bare: metrics.bare.visibility[zone],
+      heavy: metrics.heavy.visibility[zone],
+      correct: metrics.correct.visibility[zone],
+      note: "Colour difference between the YouCam-flagged area and the skin right around it. Lower = blends in better.",
+    });
+  }
+  if (active("redness") && metrics.bare.rednessA !== undefined)
+    rows.push({ key: "a", label: "Redness level", unit: "a*", bare: metrics.bare.rednessA, heavy: metrics.heavy.rednessA, correct: metrics.correct.rednessA, note: "CIELAB a* (red–green axis) averaged over the redness zone. Lower = less red." });
+  const wins = rows.filter((r) => r.correct !== undefined && r.heavy !== undefined && r.correct <= r.heavy + TIE).length;
+  const pct = (b?: number, x?: number) => (b === undefined || x === undefined || b === 0 ? "" : `${x <= b ? "−" : "+"}${Math.abs(((b - x) / b) * 100).toFixed(0)}%`);
   return (
     <div className="card p-5">
       <p className="eyebrow">Measured on your photo</p>
       <div className="mt-4 space-y-5">
         {rows.map((r) => {
-          const win = r.better === "lower" ? (r.correct ?? 0) <= (r.heavy ?? 0) : (r.correct ?? 0) >= (r.heavy ?? 0);
+          const correctWins = (r.correct ?? 99) <= (r.heavy ?? 99) + TIE;
           return (
-            <div key={r.label}>
+            <div key={r.key}>
               <p className="font-medium text-sm">{r.label}</p>
               <div className="mt-2 grid grid-cols-3 gap-2 text-center">
                 <Stat k="Bare" v={r.bare} unit={r.unit} />
-                <Stat k={`Foundation ${plan.heavyCoverage}%`} v={r.heavy} unit={r.unit} delta={pct(r.bare, r.heavy, r.better)} />
-                <Stat k={`CORRECT ${plan.correctedCoverage}%`} v={r.correct} unit={r.unit} delta={pct(r.bare, r.correct, r.better)} hi={win} />
+                <Stat k={`Foundation ${plan.heavyCoverage}%`} v={r.heavy} unit={r.unit} delta={pct(r.bare, r.heavy)} hi={!correctWins} />
+                <Stat k={`CORRECT ${plan.correctedCoverage}%`} v={r.correct} unit={r.unit} delta={pct(r.bare, r.correct)} hi={correctWins} />
               </div>
               <p className="mt-1.5 text-[11px] text-muted">{r.note}</p>
             </div>
@@ -546,10 +561,11 @@ function MetricsCard({ metrics, plan }: { metrics: { bare: Metrics; heavy: Metri
         })}
         <div className="rounded-xl bg-sage-soft p-4 text-sm">
           <p className="font-medium">
-            {plan.heavyCoverage - plan.correctedCoverage} points less coverage on your face.
+            As good or better on {wins} of {rows.length} measures – with {plan.heavyCoverage - plan.correctedCoverage} points less coverage.
           </p>
           <p className="text-muted mt-1">
-            Colour correction lets a {plan.correctedCoverage}% sheer tint do the job of a {plan.heavyCoverage}% full-coverage foundation – your skin texture stays visible instead of looking masked.
+            A {plan.correctedCoverage}% sheer tint over the right corrector vs. a {plan.heavyCoverage}% full-coverage foundation. Highlighted = the method that did better (within {TIE} ΔE counts as a tie). We show
+            it either way.
           </p>
         </div>
       </div>

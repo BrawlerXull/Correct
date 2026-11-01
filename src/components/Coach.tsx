@@ -14,7 +14,9 @@ export default function Coach({ context, summary }: { context: unknown; summary:
   const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
   const end = useRef<HTMLDivElement>(null);
-  useEffect(() => end.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), [msgs]);
+  useEffect(() => {
+    if (msgs.length) end.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [msgs]);
 
   async function ask(question: string) {
     if (!question.trim() || busy) return;

@@ -33,26 +33,31 @@ const warms: Product[] = [
   size: "4 ml",
 }));
 
-// 18 sheer skin-tint shades spanning fair -> rich, in cool / neutral / warm families.
-const ANCHORS = ["#F6DCC9", "#EBC5A9", "#DDAD8A", "#C9946E", "#B07A55", "#8F5E3E", "#6E4329", "#4E2E1C"];
+// Sheer skin-tint range spanning fair -> rich, each depth in neutral / warm / cool.
+const ANCHORS = ["#F6DCC9", "#EBC5A9", "#DDAD8A", "#C9946E", "#B07A55", "#8F5E3E", "#6E4329", "#4E2E1C", "#3A2216", "#2A1911"];
 const tints: Product[] = [];
 let n = 1;
+const grey = (hex: string) => {
+  const [r, g, b] = hexToRgb(hex);
+  const m = (r + g + b) / 3;
+  return rgbToHex([m, m, m]);
+};
 for (let i = 0; i < ANCHORS.length - 1; i++) {
   for (const t of [0, 0.5]) {
     const base = mix(ANCHORS[i], ANCHORS[i + 1], t);
-    tints.push({
-      sku: `HT-ST-${String(n).padStart(2, "0")}`,
-      name: "Barely Skin Tint",
-      kind: "skin-tint",
-      shade: `${String(n).padStart(2, "0")}${["N", "W", "C"][n % 3]}`,
-      hex: n % 3 === 1 ? mix(base, "#E0B060", 0.08) : n % 3 === 2 ? mix(base, "#D08C9C", 0.06) : base,
-      price: 24,
-      size: "30 ml",
-    });
+    // Each depth comes in Neutral (muted), Warm (golden) and Cool (rosy) – like a real 50+ shade range.
+    const variants: [string, string][] = [
+      ["N", mix(base, grey(base), 0.32)],
+      ["W", mix(base, "#E0B060", 0.08)],
+      ["C", mix(mix(base, grey(base), 0.15), "#D08C9C", 0.08)],
+    ];
+    for (const [fam, hex] of variants) {
+      tints.push({ sku: `HT-ST-${String(n).padStart(2, "0")}${fam}`, name: "Barely Skin Tint", kind: "skin-tint", shade: `${String(n).padStart(2, "0")}${fam}`, hex, price: 24, size: "30 ml" });
+    }
     n++;
   }
 }
-tints.push({ sku: `HT-ST-${n}`, name: "Barely Skin Tint", kind: "skin-tint", shade: `${n}N`, hex: rgbToHex(hexToRgb(ANCHORS[7])), price: 24, size: "30 ml" });
+tints.push({ sku: `HT-ST-${n}N`, name: "Barely Skin Tint", kind: "skin-tint", shade: `${n}N`, hex: ANCHORS[ANCHORS.length - 1], price: 24, size: "30 ml" });
 
 export const CATALOG: Product[] = [...greens, ...warms, ...tints];
 export const FULL_COVERAGE_PRICE = 42; // typical full-coverage foundation the shopper would otherwise buy

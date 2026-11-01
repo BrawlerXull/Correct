@@ -92,7 +92,9 @@ export function buildPlan(skinHex: string, scores: Scores): Plan {
 
   const red = SEV_W[sev("hd_redness")];
   const acne = SEV_W[sev("hd_acne")];
-  if (red > 0 || acne > 0.6) {
+  const deepSkin = p.depth === "deep" || p.depth === "rich";
+  // On deep skin, blemishes read as dark marks rather than red, so green would turn ashy – only use it for real redness.
+  if (red > 0 || (acne > 0.6 && !deepSkin)) {
     // Real green primers are green-tinted beige, not pure green – blend toward the skin shade.
     const pure = undertoneShift(GREEN[p.depth], p.undertone);
     const c = mix(pure, mix(skinHex, "#FFFFFF", 0.06), 0.4);
@@ -118,7 +120,10 @@ export function buildPlan(skinHex: string, scores: Scores): Plan {
   }
 
   const dc = SEV_W[sev("hd_dark_circle")];
-  const spot = SEV_W[sev("hd_age_spot")];
+  // Warm spot-correction targets hyperpigmentation, which shows most on medium-to-deep skin; on fair/light skin
+  // a peach dab on a light spot reads as a pale dot, so spots there are left to the skin-shade concealer.
+  const lighter = p.depth === "fair" || p.depth === "light";
+  const spot = lighter ? 0 : Math.max(SEV_W[sev("hd_age_spot")], deepSkin ? SEV_W[sev("hd_acne")] * 0.8 : 0);
   if (dc > 0 || spot > 0) {
     const c = undertoneShift(ORANGE[p.depth], p.undertone);
     steps.push({
@@ -160,7 +165,7 @@ export function buildPlan(skinHex: string, scores: Scores): Plan {
       NO_SMOOTH,
       { category: "foundation", palettes: [{ color: foundationHex, colorIntensity: 55, glowIntensity: 15, coverageIntensity: correctedCoverage }] },
       // spot-conceal any remaining blemishes in the skin's own shade (concealer renders on top of foundation)
-      { category: "concealer", palettes: [{ color: mix(foundationHex, skinHex, 0.5), colorIntensity: 40, colorUnderEyeIntensity: 0, coverageLevel: 50 }] },
+      { category: "concealer", palettes: [{ color: skinHex, colorIntensity: 30, colorUnderEyeIntensity: 0, coverageLevel: 45 }] },
     ],
   });
 
