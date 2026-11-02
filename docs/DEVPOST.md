@@ -81,6 +81,32 @@ Photo Enhance first.)
 
 ---
 
+## Are there industries or use cases Perfect Corp.'s API could serve that nobody is talking about yet?
+
+Building CORRECT convinced us the APIs are more than a "try-on button". Five areas we think are under-explored:
+
+1. **Paramedical and camouflage makeup.** People living with vitiligo, rosacea, scarring, burns, birthmarks, or skin
+   changes from chemotherapy are taught camouflage by specialists, often in hospital programmes with long waits. Skin
+   Analysis masks plus layered Makeup VTO could deliver that coaching at home, in their own language, with spoken
+   guidance. CORRECT is a first step in that direction.
+2. **Claims substantiation for skincare brands.** "Visibly reduces redness" needs evidence. Masked, repeatable
+   measurements (like our ΔE-inside-the-mask comparison) could give brands and small labs a low-cost way to track
+   before/after results across a trial panel, before paying for full clinical studies.
+3. **Shade-range and inclusivity analytics for retailers.** Aggregated, anonymous skin-tone and Fitzpatrick
+   results show which depths and undertones a store's catalogue fails to serve. That turns returns data into product
+   planning, and helps brands close shade gaps they can't see today.
+4. **Accessible beauty.** Blind and low-vision users, older adults, and people with limited hand mobility are almost
+   never designed for. Real-time detection with spoken feedback ("a little more on the left cheek") could make
+   independent makeup and skincare possible for many more people.
+5. **Professional and remote artistry.** Bridal, theatre and broadcast artists could run remote consultations: they
+   receive a client's analysis and colour map in advance, preview looks under different lighting, and keep a
+   continuity record across shoot days.
+
+Each of these reuses what's already in the API (masks, tone, Fitzpatrick, layered VTO); the gap is in the
+experiences built on top of it.
+
+---
+
 ## Inspiration
 Redness, dark circles and post-acne marks affect millions of people, and the usual fix is *more foundation*: it looks
 heavy, and the colour still shows through. Makeup artists do something smarter: they **cancel** the colour (green
