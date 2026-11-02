@@ -21,6 +21,42 @@ Alternatives:
 
 ---
 
+## Text description (features, functionality, consumer and retail value)
+
+**CORRECT is an AI colour-correction coach built on six YouCam APIs.** People with redness, dark circles or post-acne
+marks usually pile on more foundation. It looks heavy, and the colour still shows through. Makeup artists cancel the
+colour instead (green cancels red, peach cancels blue shadow), but shoppers can't swatch a corrector online, most
+advice is written for fair skin, and the wrong shade turns ashy on deeper skin. CORRECT closes that gap with one selfie.
+
+**Features and how they work**
+- **Guided selfie:** on-device face detection coaches distance, light and angle, with spoken tips, and captures
+  automatically. Any upload works: CORRECT frames the face and sharpens low-resolution photos with **YouCam AI Photo
+  Enhance**.
+- **Skin reading:** **YouCam Skin Analysis HD** scores redness, dark circles, dark spots and blemishes, with pixel-level
+  masks. **Skin Tone Analysis** and the **Fitzpatrick Skin Type** model cross-check depth and undertone, so shades suit
+  every skin tone, deep skin included.
+- **Colour map:** the YouCam masks become a personal "where to apply" map, painted in each corrector's real shade.
+- **Try it on, measured:** **YouCam Makeup VTO** applies the routine layer by layer on your own photo, next to the usual
+  full-coverage foundation. CORRECT then measures how visible each concern still is, and says so honestly. On the
+  redness sample it hides more with 42% coverage than foundation does at 95%.
+- **AI coach:** knows your scan and answers follow-ups in 11 languages, typed or spoken, and reads answers aloud.
+- **Matched kit:** shades are matched to the store catalogue with CIEDE2000 colour science. Save a routine card or
+  print a client sheet for a makeup artist.
+- **Accessible everywhere:** an installable PWA (sample faces work offline), extra-large text, high contrast, voice in
+  and out, and a QR hand-off from a laptop to a phone camera.
+
+**Consumer value:** the right corrector the first time, a lighter base that still covers, and a result you can see on
+your own face before you buy. It's built for the skin the usual advice forgets.
+
+**Retail value:** **one `<script>` tag** adds "Find my corrector shade" to any product page. The shopper scans once,
+the matched kit drops into the store's own cart (`correct:add-to-bag` event with SKUs), and the selfie never leaves
+CORRECT. Stores sell more in a hard-to-sell category and get fewer wrong-shade returns. Try it live:
+https://correct-youcam.vercel.app/store-demo
+
+**Try it:** https://correct-youcam.vercel.app (free sample faces, no sign-up) · **Video:** https://youtu.be/SchSyX8BlOo
+
+---
+
 ## Inspiration
 Redness, dark circles and post-acne marks affect millions of people, and the usual fix is *more foundation*: it looks
 heavy, and the colour still shows through. Makeup artists do something smarter: they **cancel** the colour (green
