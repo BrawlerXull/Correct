@@ -9,6 +9,8 @@ Alternatives:
 - (192) One selfie, read by YouCam Skin AI, tells you which colour corrector cancels your redness, dark circles or marks, where to put it, and shows it on your own face. One line adds it to any store.
 - (169) An AI colour-correction coach: one selfie, read by YouCam Skin AI, tells you which corrector you need, where it goes, and shows it on your own face. Ready for any store.
 
+**Thumbnail (3:2):** `docs/devpost-thumbnail.jpg` (1200×800) · logo only: `docs/logo-512.png`
+
 **Links**
 - Live app: https://correct-youcam.vercel.app
 - Live sample store (one-line integration): https://correct-youcam.vercel.app/store-demo
