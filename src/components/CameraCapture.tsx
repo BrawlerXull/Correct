@@ -199,7 +199,7 @@ export default function CameraCapture({ open, onClose, onCapture }: { open: bool
 
   return (
     <div className="fixed inset-0 z-50 bg-ink/90 flex items-center justify-center p-0 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="cam-title">
-      <div className="relative w-full h-full sm:h-auto sm:max-w-md bg-ink sm:rounded-3xl overflow-hidden flex flex-col">
+      <div className="relative w-full h-full sm:h-auto sm:max-w-[min(28rem,calc((100dvh-260px)*0.75))] bg-ink sm:rounded-3xl overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 text-cream" style={{ paddingTop: "max(env(safe-area-inset-top, 0px), 12px)" }}>
           <h2 id="cam-title" className="font-medium">
             Take your selfie
