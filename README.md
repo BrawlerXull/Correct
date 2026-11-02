@@ -1,15 +1,27 @@
 # CORRECT — cancel the colour, not your skin
 
-**A colour-correction coach built on the YouCam Skin AI and Makeup VTO APIs.**
+**An AI colour-correction coach built on the YouCam Skin AI and Makeup VTO APIs.** One selfie tells you which
+colour corrector your skin needs, shows exactly where to put it, renders the routine on your own face, and matches it
+to real products, in any store, in 11 languages.
 
-**Live demo: https://correct-youcam.vercel.app** · works on phone and desktop · installable PWA · MIT licensed
+| | |
+|---|---|
+| 🌐 **Live app** | **https://correct-youcam.vercel.app** (phone or desktop, installable PWA, no sign-up) |
+| 🎬 **Demo video** | **https://youtu.be/VIDEO_ID** (2:54) |
+| 🛍️ **Live sample store** | **https://correct-youcam.vercel.app/store-demo**: CORRECT embedded in a store page with one `<script>` tag |
+| 🧪 **YouCam APIs** | Skin Analysis HD · Skin Tone Analysis · Fitzpatrick Skin Type · AI Photo Enhance · Makeup VTO · AI Image Generator |
+| 📄 **License** | MIT |
+
+![CORRECT: try-on comparison of the usual full-coverage fix vs. the CORRECT routine](docs/screenshots/04-try-on.jpg)
 
 ### For judges: 60-second test
-1. Open the live demo and click a **sample face**. It costs no credits and you can explore everything.
-2. Or tap **Take a guided selfie** (live tips for distance, light and head angle), or **Upload a photo** of any size.
+1. Open the live app and click a **sample face**. It costs no credits and you can explore everything.
+2. Or tap **Take a guided selfie** (live, spoken tips for distance, light and head angle; it captures automatically), or **Upload a photo** of any size.
 3. Click **See it on my face** to compare full-coverage foundation with the CORRECT layering on your own photo, with measured results.
-4. Ask the **coach** (bottom right) anything about your plan, by typing or by voice, in any of 11 languages. Then save your **routine card** or print a **client sheet**.
-5. Open **[/store-demo](https://correct-youcam.vercel.app/store-demo)** to see CORRECT embedded in a store page with one `<script>` tag, adding matched SKUs to the store's bag.
+4. Ask the **coach** (bottom right) anything about your plan, by typing or by voice, in any of 11 languages, and tap **Listen** to hear the answer. Then save your **routine card** or print a **client sheet**.
+5. Open **[/store-demo](https://correct-youcam.vercel.app/store-demo)**, click **Find my corrector shade**, pick a sample, then **Add kit to bag**: the store's own SKUs go into its cart, and the photo never leaves CORRECT.
+
+## The problem
 
 People with redness (rosacea-prone skin), dark under-eye circles or post-acne marks usually try to hide them with *more* foundation. The result looks heavy and the colour still shows through. Makeup artists use **colour correction** instead: the complementary colour cancels the discolouration, so a sheer base is enough.
 
@@ -28,6 +40,22 @@ CORRECT handles that end to end:
 
 > Cosmetic guidance only — not a medical diagnosis.
 
+## Why it matters
+
+- **For shoppers:** you can't swatch a corrector online, and most colour-correction advice is written for fair skin. CORRECT gives a shade matched to *your* depth and undertone, shows where it goes, and shows the result on your own face before you buy. That means fewer wrong purchases and less heavy makeup.
+- **For retailers:** one `<script>` tag adds a "Find my corrector shade" button to any product page. One selfie becomes a matched basket from the store's own catalogue (`correct:add-to-bag` event with SKUs), which means higher conversion on a hard-to-sell category and fewer returns. The shopper's photo is never sent to the store.
+- **For makeup artists:** a printable client sheet with before/after photos, the map, shades with hex codes, and products.
+
+## Screenshots
+
+| | |
+|---|---|
+| ![Home: guided selfie, upload or sample faces](docs/screenshots/01-home.jpg) **Start:** guided selfie, any upload, or a sample face | ![Results: skin tone, concerns found and the routine](docs/screenshots/02-results.jpg) **Results:** YouCam Skin Analysis HD concerns, measured tone + Fitzpatrick type, the routine |
+| ![Colour map: each corrector painted where it goes](docs/screenshots/03-colour-map.jpg) **Colour map:** YouCam masks turned into a where-to-apply map, in the real shades | ![Try-on: before, usual fix, CORRECT fix](docs/screenshots/04-try-on.jpg) **Try it on:** YouCam Makeup VTO, the usual full-coverage fix vs. the CORRECT layers |
+| ![Measured comparison with a before/after slider](docs/screenshots/05-measured.jpg) **Measured honestly:** how visible each concern still is, at less than half the coverage | ![Matched kit with ΔE badges](docs/screenshots/06-kit.jpg) **Your kit:** shades matched to the catalogue with CIEDE2000, plus print sheet and routine card |
+| ![Coach drawer](docs/screenshots/07-coach.jpg) **Coach:** knows your scan; voice in and out; 11 languages | ![Sample store with the widget](docs/screenshots/08-store-demo.jpg) **Sample store:** CORRECT added with one script tag |
+| ![CORRECT running inside the store overlay](docs/screenshots/09-store-widget.jpg) **In the store:** CORRECT runs in a sandboxed overlay and returns SKUs | ![Phone: home and accessibility settings](docs/screenshots/11-mobile-settings.jpg) **Phone/PWA:** language, text size, high contrast, spoken guidance |
+
 ## How CORRECT meets the judging criteria
 
 | Criterion | What we built |
@@ -42,8 +70,8 @@ CORRECT handles that end to end:
 | Who | What CORRECT does for them |
 |---|---|
 | **People who don't read English** | 🌐 Pick a language (11, including Spanish, Portuguese, Hindi, Arabic, Indonesian, Chinese, Japanese and Korean; it follows the browser language on first visit). The coach answers in it, and the written routine is translated by Gemini (cached). The coach also replies in whatever language you type in. |
-| **Low-vision users, low literacy, hands busy with makeup** | 🔊 **Listen** reads any coach answer aloud with the device's own voice, or turn on auto-read. 🎤 **Ask by voice** with speech-to-text in the chosen language. Uses only the browser's Web Speech API: no extra service, no cost. |
-| **Taking a selfie without seeing the screen** | The guided camera can **speak its tips** ("Move a little closer", "Too dark – face a window"), buzzes when the pose is right, and auto-captures. |
+| **Low-vision users, low literacy, hands busy with makeup** | 🔊 **Listen** reads any coach answer aloud in a natural AI voice (server-side text-to-speech, falling back to the device voice), or turn on auto-read. 🎤 **Ask by voice**: the question is recorded in the browser and transcribed verbatim on the server, so it works in every browser (Chrome, Safari, Firefox, Brave). |
+| **Taking a selfie without seeing the screen** | The guided camera **speaks its tips** in a natural pre-recorded voice ("Move a little closer", "Too dark – face a window"), buzzes when the pose is right, and auto-captures. |
 | **Laptop users with poor webcams** | **"Use your phone's camera instead"** shows a QR code that opens CORRECT on the phone with the guided camera already open. |
 | **Low vision, colour-vision deficiency** | **Text size** (Default / Large / Extra large; the whole UI is in rem so everything scales), **high-contrast mode** (also follows `prefers-contrast: more`), and every colour swatch is labelled in words, including a key on the "where to apply" map. |
 | **Bad connections** | The service worker caches all three sample faces after the first visit, so the full demo (map, routine, try-on, kit) works **offline**, with a clear offline banner. |
@@ -111,6 +139,8 @@ decode masks → dab map (canvas)            ◀──── scores, masks (data
 measure ΔE / a* in mask zones (canvas, CIELAB)
 kit: CIEDE2000 match against catalogue
 coach ───────────────────────────────────────▶ POST /api/coach → Gemini (round-robin keys, failover)
+Listen / Ask by voice / language ────────────▶ POST /api/tts · /api/stt · /api/translate → Gemini
+store page: widget.js → /embed overlay ──────▶ postMessage correct:plan / correct:add-to-bag (SKUs only)
 ```
 
 - `src/lib/youcam.ts`: YouCam client (upload, start a task, poll until done). It keeps polling until each task finishes, because YouCam times out tasks that aren't polled and still charges the credits.
@@ -118,7 +148,8 @@ coach ────────────────────────�
 - `src/lib/color.ts`: sRGB → CIELAB, ITA°, hue-angle undertone.
 - `src/lib/catalog.ts`: demo catalogue (fictional house brand) + CIEDE2000.
 - `src/lib/measure.ts`: mask decoding, dab map, zone/ring visibility measurement.
-- `src/lib/gemini.ts`: Gemini client with key rotation and failover on 429/403/5xx.
+- `src/lib/gemini.ts`: Gemini client with key rotation and a multi-model fallback chain (text, speech-to-text and text-to-speech); a key/model pair that hits its quota is skipped for 15 minutes.
+- `public/widget.js`, `src/app/embed`, `src/app/store-demo`: the one-line store integration and the live sample store.
 - `src/lib/cache.ts`: disk cache keyed by image and effect hashes, so re-running a photo doesn't spend credits again. Render results are refreshed after 100 minutes because YouCam result URLs expire after 2 hours.
 
 **Cost per live session:** 1 Skin Analysis + 1 Skin Tone Analysis + 3–4 Makeup VTO calls. Sample mode spends no credits.
@@ -126,7 +157,7 @@ coach ────────────────────────�
 ## Tests
 
 ```bash
-npm test     # vitest: colour science (sRGB→CIELAB, ITA°), CIEDE2000 vs Sharma et al. reference pairs,
+npm test     # 13 vitest tests: colour science (sRGB→CIELAB, ITA°), CIEDE2000 vs Sharma et al. reference pairs,
              # rule engine (severity, shade choice by depth, no green on deep skin, smoothing off),
              # Fitzpatrick reconciliation, catalogue coverage (ΔE2000 < 3 across fair→rich)
 ```
@@ -164,3 +195,7 @@ python3 scripts/build-samples.py http://localhost:3000 redness=path/a.jpg undere
 - Skin Tone Analysis reads colour from a camera photo, so lighting shifts it. CORRECT lifts the foundation target by 6% to compensate for camera skin samples reading slightly dark.
 - Makeup VTO renders makeup; it does not simulate texture. Raised bumps still show under any coverage, and the measurement panel says so.
 - The product catalogue is a fictional demo range. A retailer would map its own SKUs.
+
+## License
+
+[MIT](LICENSE). The sample faces are AI-generated with the YouCam AI Image Generator; no real person is shown.
