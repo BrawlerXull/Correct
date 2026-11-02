@@ -491,13 +491,13 @@ export default function CorrectApp({ embed = false }: { embed?: boolean }) {
             })}
           </ol>
         </nav>
+        {!online && (
+          <div role="status" className="bg-ink text-cream text-center text-sm px-4 py-2">
+            📴 You’re offline. Sample faces, maps and routines still work; live scans and the coach need internet.
+          </div>
+        )}
       </header>
 
-      {!online && (
-        <div role="status" className="no-print sticky top-16 z-20 bg-ink text-cream text-center text-sm px-4 py-2">
-          You’re offline. Sample faces, maps and routines still work; live scans and the coach need internet.
-        </div>
-      )}
       <main id="main" className="min-h-screen pb-24 sm:pb-8">
         {/* ───────────── Hero: what this is + start ───────────── */}
         <section
