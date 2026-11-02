@@ -1,7 +1,13 @@
 # CORRECT: Devpost submission text
 
-**Tagline (≤ 200 chars):**
-An AI colour-correction coach: one selfie, read by YouCam Skin AI, tells you which corrector you need, where it goes, and shows it on your own face. Ready for any store.
+## Elevator pitch (Devpost "short tagline", max 200 characters)
+
+**Use this one (190 characters):**
+> Cancel the colour, not your skin: an AI coach that finds your corrector shade with YouCam Skin AI, maps where it goes, tries it on your face, and drops the matched kit into any store's cart.
+
+Alternatives:
+- (192) One selfie, read by YouCam Skin AI, tells you which colour corrector cancels your redness, dark circles or marks, where to put it, and shows it on your own face. One line adds it to any store.
+- (169) An AI colour-correction coach: one selfie, read by YouCam Skin AI, tells you which corrector you need, where it goes, and shows it on your own face. Ready for any store.
 
 **Links**
 - Live app: https://correct-youcam.vercel.app
