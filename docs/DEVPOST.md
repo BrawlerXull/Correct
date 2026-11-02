@@ -57,6 +57,30 @@ https://correct-youcam.vercel.app/store-demo
 
 ---
 
+## Was there a moment during the hackathon where the API surprised you?
+
+Yes, both ways.
+
+**The frustrating one:** our first layered try-on came back looking airbrushed. We'd chained three Makeup VTO passes
+(green primer → corrector → sheer tint), and the skin got smoother at every step. It took a while to find the cause:
+Makeup VTO quietly applies `skin_smooth: 50` on *every* call, so three passes compounded into a beauty filter. That
+broke the whole point of CORRECT, which is an honest comparison against foundation. Sending `skin_smooth: 0` on every
+pass, baseline included, fixed it. Right after that, our green `concealer` came back as little green *dots*: the
+concealer effect dabs individual detected spots and doesn't paint zones. So we rebuilt the routine the way a makeup
+artist would, with a sheer green-tinted *primer* layer first and concealer only as a final pin-point.
+
+**The good one:** Skin Analysis HD doesn't just return scores, it returns **pixel-level masks**. That was our "aha":
+the masks tell us *where* each concern is, not only *how much*. We decode them into the colour map that shows exactly
+where each corrector goes, and we reuse the same masks to measure the try-on result inside those zones. Combined with
+being able to chain VTO passes through the previous result's URL, the Skin AI and VTO APIs ended up working as one
+system instead of two separate calls.
+
+(Honourable mention: HD analysis rejects photos whose short side is under 1080 px or where the face is narrower than 60%
+of the frame. Most real selfies fail that, which is why CORRECT auto-frames the face and upscales it with YouCam AI
+Photo Enhance first.)
+
+---
+
 ## Inspiration
 Redness, dark circles and post-acne marks affect millions of people, and the usual fix is *more foundation*: it looks
 heavy, and the colour still shows through. Makeup artists do something smarter: they **cancel** the colour (green
