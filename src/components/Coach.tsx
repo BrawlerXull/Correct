@@ -1,11 +1,13 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import RichText from "./RichText";
+import { langInfo, usePrefs } from "@/lib/prefs";
+import { getRecognizer, plainForSpeech, speak, stopSpeaking, ttsSupported, type Recognizer } from "@/lib/speech";
 
 export type Msg = { role: "user" | "coach"; text: string; error?: boolean };
 
 /** Shared coach state so the inline summary card and the drawer show the same conversation. */
-export function useCoach(context: unknown) {
+export function useCoach(context: unknown, lang = "en") {
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [busy, setBusy] = useState(false);
   const ask = useCallback(
@@ -19,7 +21,7 @@ export function useCoach(context: unknown) {
         const r = await fetch("/api/coach", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ context, question: q, history }),
+          body: JSON.stringify({ context, question: q, history, lang }),
         });
         const j = await r.json();
         setMsgs((m) => [...m, j.text ? { role: "coach", text: j.text } : { role: "coach", text: "Sorry – I couldn't answer just now. Please try again.", error: true }]);
@@ -29,7 +31,7 @@ export function useCoach(context: unknown) {
         setBusy(false);
       }
     },
-    [busy, msgs, context]
+    [busy, msgs, context, lang]
   );
   const clear = () => setMsgs([]);
   return { msgs, busy, ask, clear };
@@ -43,6 +45,39 @@ export function CoachAvatar({ size = 36 }: { size?: number }) {
     <span aria-hidden className="grid place-items-center rounded-full bg-gradient-to-br from-sage to-apricot text-white font-serif shrink-0" style={{ width: size, height: size, fontSize: size * 0.45 }}>
       C
     </span>
+  );
+}
+
+/** Read a coach answer aloud with the device's own voice (in the chosen language). */
+export function SpeakButton({ text, className = "" }: { text: string; className?: string }) {
+  const { prefs } = usePrefs();
+  const [on, setOn] = useState(false);
+  const [ok, setOk] = useState(false);
+  useEffect(() => setOk(ttsSupported()), []);
+  useEffect(() => () => stopSpeaking(), []);
+  if (!ok || !text) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        if (on) {
+          stopSpeaking();
+          setOn(false);
+        } else {
+          setOn(true);
+          speak(plainForSpeech(text), langInfo(prefs.lang).bcp, { onEnd: () => setOn(false) });
+        }
+      }}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-rose-dark hover:bg-rose-soft focus-visible:ring-2 focus-visible:ring-rose ${className}`}
+      aria-label={on ? "Stop reading aloud" : "Read this answer aloud"}
+      aria-pressed={on}
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+        <path d="M4 9v6h4l5 4V5L8 9H4z" />
+        {on ? <path d="M17 9l4 6M21 9l-4 6" /> : <path d="M16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12" />}
+      </svg>
+      {on ? "Stop" : "Listen"}
+    </button>
   );
 }
 
@@ -61,7 +96,7 @@ export function CoachLauncher({ onOpen, hasPlan, unread }: { onOpen: () => void;
       </span>
       <span className="text-left leading-tight">
         <span className="block text-sm font-medium">Ask the coach</span>
-        <span className="hidden sm:block text-[11px] text-cream/70">{hasPlan ? "Questions about your plan" : "Colour-correction help"}</span>
+        <span className="hidden sm:block text-[0.6875rem] text-cream/70">{hasPlan ? "Questions about your plan" : "Colour-correction help"}</span>
       </span>
     </button>
   );
@@ -83,6 +118,67 @@ export default function CoachDrawer({
   const [q, setQ] = useState("");
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const { prefs } = usePrefs();
+  const bcp = langInfo(prefs.lang).bcp;
+  const [listening, setListening] = useState(false);
+  const [micOk, setMicOk] = useState(false);
+  const recRef = useRef<Recognizer | null>(null);
+  const spokenUpTo = useRef(coach.msgs.length);
+
+  useEffect(() => setMicOk(!!getRecognizer()), []);
+
+  // Auto-read new coach answers when the user has turned that on.
+  useEffect(() => {
+    if (!open) {
+      spokenUpTo.current = coach.msgs.length;
+      return;
+    }
+    const last = coach.msgs[coach.msgs.length - 1];
+    if (coach.msgs.length > spokenUpTo.current && last?.role === "coach" && !last.error && prefs.autoRead) speak(plainForSpeech(last.text), bcp);
+    spokenUpTo.current = coach.msgs.length;
+  }, [coach.msgs, open, prefs.autoRead, bcp]);
+
+  useEffect(() => {
+    if (!open) {
+      recRef.current?.abort();
+      stopSpeaking();
+    }
+  }, [open]);
+
+  const toggleMic = () => {
+    if (listening) {
+      recRef.current?.stop();
+      return;
+    }
+    const R = getRecognizer();
+    if (!R) return;
+    stopSpeaking();
+    const rec = new R();
+    rec.lang = bcp;
+    rec.interimResults = true;
+    rec.continuous = false;
+    let finalText = "";
+    rec.onresult = (e) => {
+      let interim = "";
+      for (let i = 0; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finalText = r[0].transcript;
+        else interim += r[0].transcript;
+      }
+      setQ(finalText || interim);
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => {
+      setListening(false);
+      if (finalText.trim()) {
+        coach.ask(finalText);
+        setQ("");
+      }
+    };
+    recRef.current = rec;
+    setListening(true);
+    rec.start();
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -143,11 +239,12 @@ export default function CoachDrawer({
           {/* Welcome / summary */}
           <div className="flex gap-3">
             <CoachAvatar size={28} />
-            <div className="rounded-2xl rounded-tl-sm bg-white border border-line px-4 py-3 text-[15px] text-ink/90 max-w-[85%]">
+            <div className="rounded-2xl rounded-tl-sm bg-white border border-line px-4 py-3 text-[0.9375rem] text-ink/90 max-w-[85%]">
               {hasPlan && summary ? (
                 <>
-                  <p className="text-[11px] uppercase tracking-wider text-muted mb-2">Your plan in brief</p>
+                  <p className="text-[0.6875rem] uppercase tracking-wider text-muted mb-2">Your plan in brief</p>
                   <RichText text={summary} />
+                  <SpeakButton text={summary} className="mt-2 -ml-2.5" />
                 </>
               ) : hasPlan ? (
                 <p>I’ve read your scan. Ask me anything about your shades, where to apply them, or how to adapt for an occasion.</p>
@@ -162,13 +259,14 @@ export default function CoachDrawer({
           {coach.msgs.map((m, i) =>
             m.role === "user" ? (
               <div key={i} className="flex justify-end">
-                <p className="rounded-2xl rounded-tr-sm bg-ink text-cream px-4 py-2.5 text-[15px] max-w-[85%] leading-relaxed">{m.text}</p>
+                <p className="rounded-2xl rounded-tr-sm bg-ink text-cream px-4 py-2.5 text-[0.9375rem] max-w-[85%] leading-relaxed">{m.text}</p>
               </div>
             ) : (
               <div key={i} className="flex gap-3">
                 <CoachAvatar size={28} />
-                <div className={`rounded-2xl rounded-tl-sm border px-4 py-3 text-[15px] max-w-[85%] ${m.error ? "bg-rose-soft border-rose/30 text-rose-dark" : "bg-white border-line text-ink/90"}`}>
+                <div className={`rounded-2xl rounded-tl-sm border px-4 py-3 text-[0.9375rem] max-w-[85%] ${m.error ? "bg-rose-soft border-rose/30 text-rose-dark" : "bg-white border-line text-ink/90"}`}>
                   <RichText text={m.text} />
+                  {!m.error && <SpeakButton text={m.text} className="mt-2 -ml-2.5" />}
                 </div>
               </div>
             )
@@ -186,7 +284,7 @@ export default function CoachDrawer({
         </div>
 
         <footer className="border-t border-line px-4 sm:px-5 pt-3 bg-cream" style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)" }}>
-          <p className="text-[11px] uppercase tracking-wider text-muted mb-2">Suggested questions</p>
+          <p className="text-[0.6875rem] uppercase tracking-wider text-muted mb-2">Suggested questions</p>
           <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
             {suggestions.map((s) => (
               <button key={s} onClick={() => coach.ask(s)} disabled={coach.busy} className="chip shrink-0 hover:bg-sand !py-1.5 disabled:opacity-50">
@@ -216,14 +314,31 @@ export default function CoachDrawer({
                   send();
                 }
               }}
-              placeholder="Type your question…"
-              className="flex-1 resize-none rounded-2xl border border-line bg-white px-4 py-3 text-[15px] outline-none focus:border-ink focus:ring-2 focus:ring-ink/10 max-h-32"
+              placeholder={listening ? "Listening… speak now" : micOk ? "Type or tap the mic to speak…" : "Type your question…"}
+              className="flex-1 resize-none rounded-2xl border border-line bg-white px-4 py-3 text-[0.9375rem] outline-none focus:border-ink focus:ring-2 focus:ring-ink/10 max-h-32"
             />
+            {micOk && (
+              <button
+                type="button"
+                onClick={toggleMic}
+                disabled={coach.busy}
+                className={`h-12 w-12 shrink-0 grid place-items-center rounded-full border transition ${listening ? "bg-rose text-white border-rose animate-pulse motion-reduce:animate-none" : "bg-white border-line hover:bg-sand"}`}
+                aria-label={listening ? "Stop listening" : `Ask by voice (${langInfo(prefs.lang).label})`}
+                aria-pressed={listening}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <rect x="9" y="3" width="6" height="11" rx="3" />
+                  <path d="M5 11a7 7 0 0014 0M12 18v3" />
+                </svg>
+              </button>
+            )}
             <button className="btn-primary !h-12 !px-5" disabled={coach.busy || !q.trim()} aria-label="Send question">
               Send
             </button>
           </form>
-          <p className="mt-2 text-[11px] text-muted">Cosmetic advice only – not medical. Powered by Gemini.</p>
+          <p className="mt-2 text-[0.6875rem] text-muted">
+            Answers in {langInfo(prefs.lang).label} · cosmetic advice only, not medical · powered by Gemini
+          </p>
         </footer>
       </section>
     </div>

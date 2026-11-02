@@ -24,7 +24,7 @@ html {
   @apply inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1 text-xs font-medium;
 }
 .eyebrow {
-  @apply text-[11px] uppercase tracking-[0.18em] text-muted font-medium;
+  @apply text-[0.6875rem] uppercase tracking-[0.18em] text-muted font-medium;
 }
 }
 
@@ -49,3 +49,41 @@ html {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 details > summary::-webkit-details-marker { display: none; }
+
+/* ── Reading comfort: text size (everything is sized in rem, so this scales the whole UI) ── */
+html[data-textsize="large"] { font-size: 112.5%; }
+html[data-textsize="xl"] { font-size: 125%; }
+
+/* ── High contrast: darker secondary text, stronger borders, solid surfaces ── */
+html[data-contrast="high"] .text-muted,
+html[data-contrast="high"] .text-muted\/60,
+html[data-contrast="high"] .text-ink\/80,
+html[data-contrast="high"] .text-ink\/90 { color: #1a1412 !important; }
+html[data-contrast="high"] .text-cream\/60,
+html[data-contrast="high"] .text-cream\/70,
+html[data-contrast="high"] .text-cream\/80 { color: #fff !important; }
+html[data-contrast="high"] .border-line,
+html[data-contrast="high"] .card,
+html[data-contrast="high"] .chip,
+html[data-contrast="high"] .btn-ghost { border-color: #2a2320 !important; }
+html[data-contrast="high"] .card { background: #fff !important; }
+html[data-contrast="high"] body { background: #fff; }
+html[data-contrast="high"] a, html[data-contrast="high"] .text-rose-dark { text-decoration-thickness: 2px; }
+html[data-contrast="high"] :focus-visible { outline: 4px solid #000; }
+@media (prefers-contrast: more) {
+  .text-muted { color: #3d332e; }
+  .border-line, .card { border-color: #8a7c72; }
+}
+
+/* ── Print: only the client sheet ── */
+@media print {
+  @page { size: A4; margin: 12mm; }
+  body { background: #fff !important; }
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  .print-sheet { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+.print-only { display: none; }
+@media print {
+  body > :not(.print-only) { display: none !important; }
+}

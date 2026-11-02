@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { generate, geminiConfigured } from "@/lib/gemini";
 import { checkLimit } from "@/lib/ratelimit";
+import { LANGUAGE_NAMES } from "@/lib/langnames";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -21,12 +22,14 @@ Formatting (very important – the answer is shown in a small chat panel):
 - When you mention one of their shades, include its hex code (e.g. #AEBE93) so the app can show a swatch.
 - No headings, no tables, no emojis, no closing pleasantries. Plain, warm, simple English (reading age ~12).`;
 
+
 export async function POST(req: Request) {
   try {
     const limited = checkLimit("coach", req);
     if (limited) return NextResponse.json({ text: limited });
     if (!geminiConfigured()) return NextResponse.json({ text: null, error: "Coach unavailable (no Gemini key)" });
-    const { context, question, history } = await req.json();
+    const { context, question, history, lang } = await req.json();
+    const language = LANGUAGE_NAMES[String(lang || "en")] || "English";
     const convo = Array.isArray(history)
       ? history
           .slice(-6)
@@ -41,7 +44,10 @@ One sentence on what the scan found (plain words, no numbers).
 - **Step 1:** the first product + shade + where (with hex)
 - **Step 2:** ... (one bullet per step in their plan, max 3)
 - **Top tip:** the single most important application tip for them.`;
-    const text = await generate(`${ctx}\n${convo ? "CONVERSATION SO FAR:\n" + convo + "\n\n" : ""}${ask}`, { system: SYSTEM });
+    const langRule = `\n\nLanguage: write the whole answer in ${language}${
+      language === "English" ? " – unless the shopper's latest message is clearly written in another language, then answer in that language" : ""
+    }. Keep hex codes, numbers and product/shade names exactly as given. Use simple everyday words (they may be read aloud).`;
+    const text = await generate(`${ctx}\n${convo ? "CONVERSATION SO FAR:\n" + convo + "\n\n" : ""}${ask}`, { system: SYSTEM + langRule });
     return NextResponse.json({ text });
   } catch (e) {
     return NextResponse.json({ text: null, error: e instanceof Error ? e.message : String(e) }, { status: 200 });

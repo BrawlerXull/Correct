@@ -8,7 +8,8 @@
 1. Open the live demo and click a **sample face**. It costs no credits and you can explore everything.
 2. Or tap **Take a guided selfie** (live tips for distance, light and head angle), or **Upload a photo** of any size.
 3. Click **See it on my face** to compare full-coverage foundation with the CORRECT layering on your own photo, with measured results.
-4. Ask the **coach** (bottom right) anything about your plan, and save your **routine card**.
+4. Ask the **coach** (bottom right) anything about your plan, by typing or by voice, in any of 11 languages. Then save your **routine card** or print a **client sheet**.
+5. Open **[/store-demo](https://correct-youcam.vercel.app/store-demo)** to see CORRECT embedded in a store page with one `<script>` tag, adding matched SKUs to the store's bag.
 
 People with redness (rosacea-prone skin), dark under-eye circles or post-acne marks usually try to hide them with *more* foundation. The result looks heavy and the colour still shows through. Makeup artists use **colour correction** instead: the complementary colour cancels the discolouration, so a sheer base is enough.
 
@@ -32,9 +33,24 @@ CORRECT handles that end to end:
 | Criterion | What we built |
 |---|---|
 | **Technological implementation** | **6 YouCam APIs** in one pipeline: Skin Analysis HD (4 concerns + masks), Skin Tone, Fitzpatrick, Photo Enhance, and Makeup VTO (chained foundation/concealer/smoothing layers), plus Text-to-Image for the sample faces. Masks are decoded pixel by pixel, renders are measured in CIELAB, and the CIEDE2000 matching is unit-tested against published reference data. On-device MediaPipe face detection; credit guard (rate limits + daily cap); response caching. |
-| **Design** | A guided flow (Scan → Your plan → Try it on → Your kit) with a scroll-aware step tracker, guided selfie camera, results-at-a-glance card, plain-language explanations, before/after slider, shareable routine card, coach drawer, installable PWA, WCAG-minded focus/keyboard/screen-reader support. |
-| **Potential impact** | A specific, under-served audience (rosacea-prone skin, dark circles, dark marks on deeper skin) for whom "more foundation" fails. The app shows the outcome on the user's own face and measures it, so the claim can be checked. Store value: one selfie becomes a matched basket from the store's own catalogue. |
+| **Design** | 11 languages, voice in and out, text size, high contrast, spoken camera guidance, phone hand-off by QR code, offline samples, printable client sheet. A guided flow (Scan → Your plan → Try it on → Your kit) with a scroll-aware step tracker, guided selfie camera, results-at-a-glance card, plain-language explanations, before/after slider, shareable routine card, coach drawer, installable PWA, WCAG-minded focus/keyboard/screen-reader support. |
+| **Potential impact** | A specific, under-served audience (rosacea-prone skin, dark circles, dark marks on deeper skin) for whom "more foundation" fails. The app shows the outcome on the user's own face and measures it, so the claim can be checked. Store value: one selfie becomes a matched basket from the store's own catalogue, and the **one-line embeddable widget** puts it on any product page. |
 | **Quality of idea** | It uses the Skin AI *masks* (where), not just scores (how much), to drive a *Makeup VTO* routine, so Skin AI and VTO work as one. It encodes makeup-artist colour theory scaled by ITA°/Fitzpatrick depth, and designs around API realities we discovered (default smoothing, spot-only concealer, HD size and face-fraction limits). |
+
+## Made for a wider audience
+
+| Who | What CORRECT does for them |
+|---|---|
+| **People who don't read English** | 🌐 Pick a language (11, including Spanish, Portuguese, Hindi, Arabic, Indonesian, Chinese, Japanese and Korean; it follows the browser language on first visit). The coach answers in it, and the written routine is translated by Gemini (cached). The coach also replies in whatever language you type in. |
+| **Low-vision users, low literacy, hands busy with makeup** | 🔊 **Listen** reads any coach answer aloud with the device's own voice, or turn on auto-read. 🎤 **Ask by voice** with speech-to-text in the chosen language. Uses only the browser's Web Speech API: no extra service, no cost. |
+| **Taking a selfie without seeing the screen** | The guided camera can **speak its tips** ("Move a little closer", "Too dark – face a window"), buzzes when the pose is right, and auto-captures. |
+| **Laptop users with poor webcams** | **"Use your phone's camera instead"** shows a QR code that opens CORRECT on the phone with the guided camera already open. |
+| **Low vision, colour-vision deficiency** | **Text size** (Default / Large / Extra large; the whole UI is in rem so everything scales), **high-contrast mode** (also follows `prefers-contrast: more`), and every colour swatch is labelled in words, including a key on the "where to apply" map. |
+| **Bad connections** | The service worker caches all three sample faces after the first visit, so the full demo (map, routine, try-on, kit) works **offline**, with a clear offline banner. |
+| **Shoppers who want real products** | **Find similar** links for each step search Sephora, Ulta, Amazon and Nykaa for that product type and shade family (plain searches, no affiliate tags). |
+| **People tracking their skin** | **My scans over time** keeps a small history *only in the browser* (thumbnail + YouCam scores) and compares each scan with the last one per concern ("Calmer than last time"). Can be deleted at any time. |
+| **Makeup artists** | **Print sheet**: a one-page A4 client sheet (before / map / after photos, skin profile, routine table with swatches and hex codes, products, coach notes, blank artist-notes lines). Use print or "Save as PDF". |
+| **Retailers** | **Embeddable widget**: `<script src=".../widget.js" data-target="#slot">` adds a "Find my corrector shade" button. CORRECT runs in an overlay iframe (`/embed`) and posts `correct:plan` and `correct:add-to-bag` events with the store SKUs. **Photos are never sent to the host page.** Live example: [/store-demo](https://correct-youcam.vercel.app/store-demo). |
 
 ## Results on the three sample faces
 

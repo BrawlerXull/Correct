@@ -3,6 +3,8 @@
 // (distance, centring, head level, light) so the photo passes YouCam's HD skin-analysis checks first time.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getDetector } from "@/lib/prep";
+import { usePrefs } from "@/lib/prefs";
+import { speak, stopSpeaking, ttsSupported, vibrate } from "@/lib/speech";
 
 type Check = { id: string; ok: boolean; tip: string; label: string };
 
@@ -15,6 +17,10 @@ export default function CameraCapture({ open, onClose, onCapture }: { open: bool
   const [countdown, setCountdown] = useState<number | null>(null);
   const [autoShoot, setAutoShoot] = useState(true);
   const goodSince = useRef<number | null>(null);
+  const { prefs, set } = usePrefs();
+  const voice = prefs.voiceTips;
+  const [ttsOk, setTtsOk] = useState(false);
+  useEffect(() => setTtsOk(ttsSupported()), []);
 
   const stop = useCallback(() => {
     streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -28,6 +34,8 @@ export default function CameraCapture({ open, onClose, onCapture }: { open: bool
     c.width = v.videoWidth;
     c.height = v.videoHeight;
     c.getContext("2d")!.drawImage(v, 0, 0); // un-mirrored, full sensor resolution
+    vibrate([40, 60, 40]);
+    if (voice) speak("Got it. Analysing your skin now.", "en-US");
     c.toBlob(
       (b) => {
         if (!b) return;
@@ -37,7 +45,7 @@ export default function CameraCapture({ open, onClose, onCapture }: { open: bool
       "image/jpeg",
       0.95
     );
-  }, [onCapture, stop]);
+  }, [onCapture, stop, voice]);
 
   // Start / stop camera.
   useEffect(() => {
@@ -162,9 +170,31 @@ export default function CameraCapture({ open, onClose, onCapture }: { open: bool
     return () => clearInterval(id);
   }, [open, ready, autoShoot, capture]);
 
-  if (!open) return null;
   const firstProblem = checks.find((c) => !c.ok);
   const allOk = checks.length >= 4 && !firstProblem;
+  const spokenTip = !ready || error ? "" : allOk ? "Perfect. Hold still." : firstProblem?.tip || "";
+
+  // Spoken guidance: say each new tip once it has been stable for a moment; never repeat the same tip within 4 s.
+  const lastSpoken = useRef<{ text: string; at: number }>({ text: "", at: 0 });
+  useEffect(() => {
+    if (!open || !voice || !spokenTip) return;
+    const id = setTimeout(() => {
+      const now = Date.now();
+      if (lastSpoken.current.text === spokenTip && now - lastSpoken.current.at < 4000) return;
+      lastSpoken.current = { text: spokenTip, at: now };
+      speak(spokenTip, "en-US", { rate: 1.05 });
+    }, 700);
+    return () => clearTimeout(id);
+  }, [spokenTip, open, voice]);
+  // A small buzz the moment everything lines up – feedback without looking at the screen.
+  useEffect(() => {
+    if (open && allOk) vibrate(30);
+  }, [allOk, open]);
+  useEffect(() => {
+    if (!open) stopSpeaking();
+  }, [open]);
+
+  if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-ink/90 flex items-center justify-center p-0 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="cam-title">
@@ -173,6 +203,22 @@ export default function CameraCapture({ open, onClose, onCapture }: { open: bool
           <h2 id="cam-title" className="font-medium">
             Take your selfie
           </h2>
+          {ttsOk && (
+            <button
+              onClick={() => {
+                if (voice) stopSpeaking();
+                set("voiceTips", !voice);
+              }}
+              aria-pressed={voice}
+              className={`ml-auto mr-1 flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-medium ${voice ? "bg-sage text-white" : "bg-white/10 text-cream hover:bg-white/20"}`}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path d="M4 9v6h4l5 4V5L8 9H4z" />
+                {voice ? <path d="M16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12" /> : <path d="M17 9l4 6M21 9l-4 6" />}
+              </svg>
+              {voice ? "Voice tips on" : "Voice tips off"}
+            </button>
+          )}
           <button onClick={onClose} className="h-10 w-10 grid place-items-center rounded-full hover:bg-white/10" aria-label="Close camera">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
               <path d="M6 6l12 12M18 6L6 18" />
@@ -212,7 +258,7 @@ export default function CameraCapture({ open, onClose, onCapture }: { open: bool
           </p>
           <ul className="mt-3 flex flex-wrap justify-center gap-1.5" aria-label="Photo checks">
             {checks.map((c) => (
-              <li key={c.id} className={`rounded-full px-2.5 py-1 text-[11px] ${c.ok ? "bg-sage/80 text-white" : "bg-white/10 text-cream/70"}`}>
+              <li key={c.id} className={`rounded-full px-2.5 py-1 text-[0.6875rem] ${c.ok ? "bg-sage/80 text-white" : "bg-white/10 text-cream/70"}`}>
                 {c.ok ? "✓ " : "○ "}
                 {c.label}
               </li>
@@ -229,7 +275,7 @@ export default function CameraCapture({ open, onClose, onCapture }: { open: bool
               className="h-16 w-16 rounded-full border-4 border-white bg-white/90 disabled:opacity-40 focus-visible:ring-4 focus-visible:ring-sage"
               aria-label="Take photo"
             />
-            <span className="w-[92px] text-right text-[11px] text-cream/60">Nothing is saved</span>
+            <span className="w-[92px] text-right text-[0.6875rem] text-cream/60">Nothing is saved</span>
           </div>
         </div>
       </div>
