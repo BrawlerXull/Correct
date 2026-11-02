@@ -80,7 +80,7 @@ export async function transcribe(audioB64: string, mime: string, languageName: s
     [
       { inline_data: { mime_type: mime, data: audioB64 } },
       {
-        text: `Transcribe exactly what the speaker says (it is a question for a makeup / skincare assistant; the speaker most likely uses ${languageName}). Write it in the language actually spoken, with normal punctuation. Return ONLY the transcript. If there is no speech, return an empty string.`,
+        text: `Transcribe this recording VERBATIM, word for word, in the language and script it is actually spoken in. Do NOT translate (if the speaker talks in English, write English even though the app language is ${languageName}; if they speak Hindi, write Hindi in Devanagari). It is a question for a makeup / skincare assistant. Return ONLY the transcript, with normal punctuation. If there is no speech, return an empty string.`,
       },
     ],
     { generationConfig: { temperature: 0 } }
