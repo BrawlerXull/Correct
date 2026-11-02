@@ -7,7 +7,7 @@ An AI colour-correction coach: one selfie, read by YouCam Skin AI, tells you whi
 - Live app: https://correct-youcam.vercel.app
 - Live sample store (one-line integration): https://correct-youcam.vercel.app/store-demo
 - Code: https://github.com/BrawlerXull/Correct
-- Demo video: https://youtu.be/VIDEO_ID
+- Demo video: https://youtu.be/SchSyX8BlOo
 
 **Built with:** YouCam Skin Analysis HD, YouCam Skin Tone Analysis, YouCam Fitzpatrick Skin Type, YouCam AI Photo Enhance, YouCam Makeup VTO, YouCam AI Image Generator, Next.js, React, TypeScript, Tailwind CSS, MediaPipe, Gemini, sharp, Vercel, PWA
 

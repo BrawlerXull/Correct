@@ -7,7 +7,7 @@ to real products, in any store, in 11 languages.
 | | |
 |---|---|
 | 🌐 **Live app** | **https://correct-youcam.vercel.app** (phone or desktop, installable PWA, no sign-up) |
-| 🎬 **Demo video** | **https://youtu.be/VIDEO_ID** (2:54) |
+| 🎬 **Demo video** | **https://youtu.be/SchSyX8BlOo** (2:54) |
 | 🛍️ **Live sample store** | **https://correct-youcam.vercel.app/store-demo**: CORRECT embedded in a store page with one `<script>` tag |
 | 🧪 **YouCam APIs** | Skin Analysis HD · Skin Tone Analysis · Fitzpatrick Skin Type · AI Photo Enhance · Makeup VTO · AI Image Generator |
 | 📄 **License** | MIT |
