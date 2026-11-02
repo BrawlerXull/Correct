@@ -107,6 +107,36 @@ experiences built on top of it.
 
 ---
 
+## Where did you hit a wall technically? How did you work around it?
+
+1. **Real selfies were rejected by the HD analysis.** Skin Analysis HD needs a short side of at least 1080 px and a face
+   wider than 60% of the frame. Webcam shots, landscape phone photos and screenshots failed with
+   `error_below_min_image_size` or `error_src_face_too_small`. *Workaround:* MediaPipe face detection runs in the
+   browser (about 20 ms, nothing uploaded) and crops a 3:4 portrait around the face. If it's still too small, the
+   server upscales it with **YouCam AI Photo Enhance**, and every later step (masks, try-on, measurement) uses that
+   exact prepared image so the layers line up.
+2. **Credits disappeared on tasks we never saw finish.** YouCam tasks time out if you stop polling, and the credits
+   are still spent. Credits were also shared across our builds and drained fast during testing. *Workaround:* the
+   client always polls each task to completion; responses are cached by image and effect hash; there are per-visitor
+   rate limits and a daily scan cap; and the three sample faces ship with pre-computed real results, so judges can
+   explore everything for zero credits.
+3. **Measuring "better" honestly.** A before/after slider is persuasive but proves nothing. *Workaround:* we decode the
+   Skin Analysis masks (redness and spots are RGBA colour overlays; dark circles are alpha-only) and compute the CIELAB
+   ΔE between each flagged zone and the skin around it, for both foundation and the CORRECT routine. The app shows
+   whichever did better, even when it's the foundation.
+4. **Skin colour from a camera is unreliable.** Lighting shifts the measured tone, and the wrong depth means an ashy
+   corrector. *Workaround:* we compute ITA° from Skin Tone Analysis and cross-check it against the **Fitzpatrick**
+   model. If they disagree by two or more bands, the model wins. We also lift the foundation target slightly, because
+   camera skin samples read dark.
+5. **Voice and free-tier limits.** Browser speech recognition doesn't work in Brave or Firefox, and the free AI tier
+   caps requests per model per day. *Workaround:* audio is recorded in the browser and transcribed on the server,
+   and calls fall through a chain of models, skipping any key/model pair that hits its quota for 15 minutes.
+6. **Putting a selfie tool inside someone else's store without leaking the photo.** *Workaround:* `widget.js` opens
+   CORRECT in a sandboxed iframe overlay, and only `postMessage` events carrying shade hexes and SKUs reach the host
+   page. The photo never does.
+
+---
+
 ## Inspiration
 Redness, dark circles and post-acne marks affect millions of people, and the usual fix is *more foundation*: it looks
 heavy, and the colour still shows through. Makeup artists do something smarter: they **cancel** the colour (green
