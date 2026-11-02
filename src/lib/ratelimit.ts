@@ -12,6 +12,7 @@ const LIMITS = {
   analyze: { max: 8, windowMs: 10 * 60_000 }, // 8 new photos / 10 min per visitor
   render: { max: 40, windowMs: 10 * 60_000 }, // ~8 sessions of 4-5 renders
   coach: { max: 40, windowMs: 10 * 60_000 },
+  voice: { max: 60, windowMs: 10 * 60_000 }, // read-aloud + voice questions
 } as const;
 const DAILY_SCAN_CAP = Number(process.env.DAILY_SCAN_CAP || 150);
 

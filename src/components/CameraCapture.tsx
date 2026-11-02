@@ -4,9 +4,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getDetector } from "@/lib/prep";
 import { usePrefs } from "@/lib/prefs";
-import { speak, stopSpeaking, ttsSupported, vibrate } from "@/lib/speech";
+import { playTip, stopSpeaking, ttsSupported, vibrate } from "@/lib/speech";
 
-type Check = { id: string; ok: boolean; tip: string; label: string };
+type Check = { id: string; ok: boolean; tip: string; label: string; voice?: string }; // voice = /public/voice/<id>.mp3
 
 export default function CameraCapture({ open, onClose, onCapture }: { open: boolean; onClose: () => void; onCapture: (b: Blob) => void }) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -35,7 +35,7 @@ export default function CameraCapture({ open, onClose, onCapture }: { open: bool
     c.height = v.videoHeight;
     c.getContext("2d")!.drawImage(v, 0, 0); // un-mirrored, full sensor resolution
     vibrate([40, 60, 40]);
-    if (voice) speak("Got it. Analysing your skin now.", "en-US");
+    if (voice) playTip("captured");
     c.toBlob(
       (b) => {
         if (!b) return;
@@ -107,7 +107,7 @@ export default function CameraCapture({ open, onClose, onCapture }: { open: bool
         const W = probe.width, H = probe.height;
         const out: Check[] = [];
         if (faces.length !== 1) {
-          out.push({ id: "face", ok: false, label: "One face in view", tip: faces.length ? "Only one person in the frame, please." : "Look at the camera so we can see your face." });
+          out.push({ id: "face", ok: false, label: "One face in view", tip: faces.length ? "Only one person in the frame, please." : "Look at the camera so we can see your face.", voice: faces.length ? "many-faces" : "no-face" });
         } else {
           const b = faces[0].boundingBox!;
           const frac = b.width / W;
@@ -117,14 +117,15 @@ export default function CameraCapture({ open, onClose, onCapture }: { open: bool
             ok: frac >= 0.26 && frac <= 0.62,
             label: "Good distance",
             tip: frac < 0.26 ? "Move a little closer." : "Move back a little – keep your whole face in the oval.",
+            voice: frac < 0.26 ? "closer" : "back",
           });
           const cx = (b.originX + b.width / 2) / W, cy = (b.originY + b.height / 2) / H;
-          out.push({ id: "centre", ok: Math.abs(cx - 0.5) < 0.12 && Math.abs(cy - 0.46) < 0.16, label: "Centred", tip: "Centre your face in the oval." });
+          out.push({ id: "centre", ok: Math.abs(cx - 0.5) < 0.12 && Math.abs(cy - 0.46) < 0.16, label: "Centred", tip: "Centre your face in the oval.", voice: "centre" });
           const kp = faces[0].keypoints || [];
           if (kp.length >= 2) {
             const [r, l] = kp; // right eye, left eye (normalised)
             const angle = (Math.atan2((l.y - r.y) * H, (l.x - r.x) * W) * 180) / Math.PI;
-            out.push({ id: "level", ok: Math.abs(angle) < 8 || Math.abs(Math.abs(angle) - 180) < 8, label: "Head level", tip: "Keep your head straight (don't tilt)." });
+            out.push({ id: "level", ok: Math.abs(angle) < 8 || Math.abs(Math.abs(angle) - 180) < 8, label: "Head level", tip: "Keep your head straight (don't tilt).", voice: "level" });
           }
           // Light: mean luminance inside the face box.
           const x0 = Math.max(0, Math.floor(b.originX)), y0 = Math.max(0, Math.floor(b.originY));
@@ -133,7 +134,7 @@ export default function CameraCapture({ open, onClose, onCapture }: { open: bool
           let sum = 0;
           for (let i = 0; i < px.length; i += 16) sum += 0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2];
           const lum = sum / (px.length / 16);
-          out.push({ id: "light", ok: lum > 85 && lum < 225, label: "Good light", tip: lum <= 85 ? "Too dark – face a window or a lamp." : "Too bright – step out of direct light." });
+          out.push({ id: "light", ok: lum > 85 && lum < 225, label: "Good light", tip: lum <= 85 ? "Too dark – face a window or a lamp." : "Too bright – step out of direct light.", voice: lum <= 85 ? "dark" : "bright" });
         }
         if (!alive) return;
         setChecks(out);
@@ -172,7 +173,7 @@ export default function CameraCapture({ open, onClose, onCapture }: { open: bool
 
   const firstProblem = checks.find((c) => !c.ok);
   const allOk = checks.length >= 4 && !firstProblem;
-  const spokenTip = !ready || error ? "" : allOk ? "Perfect. Hold still." : firstProblem?.tip || "";
+  const spokenTip = !ready || error ? "" : allOk ? "hold" : firstProblem?.voice || "";
 
   // Spoken guidance: say each new tip once it has been stable for a moment; never repeat the same tip within 4 s.
   const lastSpoken = useRef<{ text: string; at: number }>({ text: "", at: 0 });
@@ -182,7 +183,7 @@ export default function CameraCapture({ open, onClose, onCapture }: { open: bool
       const now = Date.now();
       if (lastSpoken.current.text === spokenTip && now - lastSpoken.current.at < 4000) return;
       lastSpoken.current = { text: spokenTip, at: now };
-      speak(spokenTip, "en-US", { rate: 1.05 });
+      playTip(spokenTip);
     }, 700);
     return () => clearTimeout(id);
   }, [spokenTip, open, voice]);

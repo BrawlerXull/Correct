@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import RichText from "./RichText";
 import { langInfo, usePrefs } from "@/lib/prefs";
-import { getRecognizer, plainForSpeech, speak, stopSpeaking, ttsSupported, type Recognizer } from "@/lib/speech";
+import { plainForSpeech, recordingSupported, recordQuestion, speakNatural, stopSpeaking, ttsSupported } from "@/lib/speech";
 
 export type Msg = { role: "user" | "coach"; text: string; error?: boolean };
 
@@ -48,35 +48,44 @@ export function CoachAvatar({ size = 36 }: { size?: number }) {
   );
 }
 
-/** Read a coach answer aloud with the device's own voice (in the chosen language). */
+/** Read a coach answer aloud in a natural voice (Gemini TTS, in the answer's own language). */
 export function SpeakButton({ text, className = "" }: { text: string; className?: string }) {
   const { prefs } = usePrefs();
-  const [on, setOn] = useState(false);
+  const [state, setState] = useState<"idle" | "loading" | "playing">("idle");
   const [ok, setOk] = useState(false);
   useEffect(() => setOk(ttsSupported()), []);
   useEffect(() => () => stopSpeaking(), []);
   if (!ok || !text) return null;
+  const on = state !== "idle";
   return (
     <button
       type="button"
       onClick={() => {
         if (on) {
           stopSpeaking();
-          setOn(false);
+          setState("idle");
         } else {
-          setOn(true);
-          speak(plainForSpeech(text), langInfo(prefs.lang).bcp, { onEnd: () => setOn(false) });
+          speakNatural(plainForSpeech(text), langInfo(prefs.lang).bcp, {
+            onLoading: () => setState("loading"),
+            onStart: () => setState("playing"),
+            onEnd: () => setState("idle"),
+          });
+          setState("loading");
         }
       }}
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-rose-dark hover:bg-rose-soft focus-visible:ring-2 focus-visible:ring-rose ${className}`}
-      aria-label={on ? "Stop reading aloud" : "Read this answer aloud"}
+      aria-label={state === "loading" ? "Preparing voice – tap to cancel" : on ? "Stop reading aloud" : "Read this answer aloud"}
       aria-pressed={on}
     >
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-        <path d="M4 9v6h4l5 4V5L8 9H4z" />
-        {on ? <path d="M17 9l4 6M21 9l-4 6" /> : <path d="M16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12" />}
-      </svg>
-      {on ? "Stop" : "Listen"}
+      {state === "loading" ? (
+        <span className="h-3.5 w-3.5 rounded-full border-2 border-rose/30 border-t-rose-dark animate-spin motion-reduce:animate-none" aria-hidden />
+      ) : (
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+          <path d="M4 9v6h4l5 4V5L8 9H4z" />
+          {on ? <path d="M17 9l4 6M21 9l-4 6" /> : <path d="M16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12" />}
+        </svg>
+      )}
+      {state === "loading" ? "Preparing voice…" : state === "playing" ? "Stop" : "Listen"}
     </button>
   );
 }
@@ -120,12 +129,14 @@ export default function CoachDrawer({
   const listRef = useRef<HTMLDivElement>(null);
   const { prefs } = usePrefs();
   const bcp = langInfo(prefs.lang).bcp;
-  const [listening, setListening] = useState(false);
+  const [mic, setMic] = useState<"idle" | "listening" | "transcribing">("idle");
+  const [micErr, setMicErr] = useState<string | null>(null);
+  const [level, setLevel] = useState(0);
   const [micOk, setMicOk] = useState(false);
-  const recRef = useRef<Recognizer | null>(null);
+  const recRef = useRef<Awaited<ReturnType<typeof recordQuestion>> | null>(null);
   const spokenUpTo = useRef(coach.msgs.length);
 
-  useEffect(() => setMicOk(!!getRecognizer()), []);
+  useEffect(() => setMicOk(recordingSupported()), []);
 
   // Auto-read new coach answers when the user has turned that on.
   useEffect(() => {
@@ -134,70 +145,62 @@ export default function CoachDrawer({
       return;
     }
     const last = coach.msgs[coach.msgs.length - 1];
-    if (coach.msgs.length > spokenUpTo.current && last?.role === "coach" && !last.error && prefs.autoRead) speak(plainForSpeech(last.text), bcp);
+    if (coach.msgs.length > spokenUpTo.current && last?.role === "coach" && !last.error && prefs.autoRead) speakNatural(plainForSpeech(last.text), bcp);
     spokenUpTo.current = coach.msgs.length;
   }, [coach.msgs, open, prefs.autoRead, bcp]);
 
   useEffect(() => {
     if (!open) {
-      recRef.current?.abort();
+      recRef.current?.stop();
       stopSpeaking();
     }
   }, [open]);
 
-  const toggleMic = () => {
-    if (listening) {
+  const toggleMic = async () => {
+    setMicErr(null);
+    if (mic === "listening") {
       recRef.current?.stop();
       return;
     }
-    const R = getRecognizer();
-    if (!R) return;
+    if (mic !== "idle") return;
     stopSpeaking();
-    const rec = new R();
-    rec.lang = bcp;
-    rec.interimResults = true;
-    rec.continuous = false;
-    let finalText = "";
-    rec.onresult = (e) => {
-      let interim = "";
-      for (let i = 0; i < e.results.length; i++) {
-        const r = e.results[i];
-        if (r.isFinal) finalText = r[0].transcript;
-        else interim += r[0].transcript;
-      }
-      setQ(finalText || interim);
-    };
-    rec.onerror = () => setListening(false);
-    rec.onend = () => {
-      setListening(false);
-      if (finalText.trim()) {
-        coach.ask(finalText);
-        setQ("");
-      }
-    };
+    let rec: Awaited<ReturnType<typeof recordQuestion>>;
+    try {
+      rec = await recordQuestion();
+    } catch (e) {
+      const name = (e as DOMException)?.name;
+      setMicErr(name === "NotAllowedError" ? "Microphone blocked – allow it in your browser’s site settings, then try again." : "Couldn’t start the microphone on this device.");
+      return;
+    }
     recRef.current = rec;
-    setListening(true);
-    rec.start();
+    setMic("listening");
+    const meter = setInterval(() => setLevel(rec.level()), 90);
+    const blob = await rec.done;
+    clearInterval(meter);
+    setLevel(0);
+    recRef.current = null;
+    if (!blob) {
+      setMic("idle");
+      setMicErr("I didn’t catch anything – tap the mic and speak a little louder.");
+      return;
+    }
+    setMic("transcribing");
+    try {
+      const fd = new FormData();
+      fd.append("audio", blob, "question.webm");
+      fd.append("lang", prefs.lang);
+      const r = await fetch("/api/stt", { method: "POST", body: fd });
+      const j = await r.json();
+      if (j.error) throw new Error(j.error);
+      const text = String(j.text || "").trim();
+      if (!text) setMicErr("I didn’t catch that – please try again.");
+      else coach.ask(text);
+    } catch {
+      setMicErr("Voice input is busy right now – please type your question.");
+    } finally {
+      setMic("idle");
+    }
   };
-
-  useEffect(() => {
-    if (!open) return;
-    const prev = document.activeElement as HTMLElement | null;
-    setTimeout(() => inputRef.current?.focus(), 50);
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    document.body.style.overflow = "hidden";
-    return () => {
-      window.removeEventListener("keydown", onKey);
-      document.body.style.overflow = "";
-      prev?.focus?.();
-    };
-  }, [open, onClose]);
-
-  useEffect(() => {
-    const el = listRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [coach.msgs, coach.busy, open]);
 
   if (!open) return null;
   const suggestions = hasPlan ? PLAN_QS : GENERAL_QS;
@@ -314,28 +317,40 @@ export default function CoachDrawer({
                   send();
                 }
               }}
-              placeholder={listening ? "Listening… speak now" : micOk ? "Type or tap the mic to speak…" : "Type your question…"}
+              placeholder={mic === "listening" ? "Listening… just speak, I’ll stop when you pause" : mic === "transcribing" ? "Writing down your question…" : micOk ? "Type, or tap the mic and speak…" : "Type your question…"}
               className="flex-1 resize-none rounded-2xl border border-line bg-white px-4 py-3 text-[0.9375rem] outline-none focus:border-ink focus:ring-2 focus:ring-ink/10 max-h-32"
             />
             {micOk && (
               <button
                 type="button"
                 onClick={toggleMic}
-                disabled={coach.busy}
-                className={`h-12 w-12 shrink-0 grid place-items-center rounded-full border transition ${listening ? "bg-rose text-white border-rose animate-pulse motion-reduce:animate-none" : "bg-white border-line hover:bg-sand"}`}
-                aria-label={listening ? "Stop listening" : `Ask by voice (${langInfo(prefs.lang).label})`}
-                aria-pressed={listening}
+                disabled={coach.busy || mic === "transcribing"}
+                className={`relative h-12 w-12 shrink-0 grid place-items-center rounded-full border transition ${mic === "listening" ? "bg-rose text-white border-rose" : "bg-white border-line hover:bg-sand"}`}
+                aria-label={mic === "listening" ? "Stop recording and send" : mic === "transcribing" ? "Transcribing your question" : `Ask by voice (${langInfo(prefs.lang).label})`}
+                aria-pressed={mic === "listening"}
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                  <rect x="9" y="3" width="6" height="11" rx="3" />
-                  <path d="M5 11a7 7 0 0014 0M12 18v3" />
-                </svg>
+                {mic === "listening" && (
+                  <span aria-hidden className="absolute inset-0 rounded-full ring-4 ring-rose/40 transition-transform" style={{ transform: `scale(${1 + level * 0.45})` }} />
+                )}
+                {mic === "transcribing" ? (
+                  <span className="h-5 w-5 rounded-full border-2 border-line border-t-ink animate-spin motion-reduce:animate-none" aria-hidden />
+                ) : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <rect x="9" y="3" width="6" height="11" rx="3" />
+                    <path d="M5 11a7 7 0 0014 0M12 18v3" />
+                  </svg>
+                )}
               </button>
             )}
             <button className="btn-primary !h-12 !px-5" disabled={coach.busy || !q.trim()} aria-label="Send question">
               Send
             </button>
           </form>
+          {micErr && (
+            <p role="alert" className="mt-2 text-xs text-rose-dark">
+              {micErr}
+            </p>
+          )}
           <p className="mt-2 text-[0.6875rem] text-muted">
             Answers in {langInfo(prefs.lang).label} · cosmetic advice only, not medical · powered by Gemini
           </p>

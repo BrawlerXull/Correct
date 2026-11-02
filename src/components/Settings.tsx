@@ -1,6 +1,7 @@
 "use client";
 // "Language & accessibility" panel: language, text size, contrast and voice options in one place.
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { LANGS, langInfo, usePrefs } from "@/lib/prefs";
 import { ttsSupported } from "@/lib/speech";
 
@@ -15,9 +16,10 @@ export function SettingsButton({ className = "" }: { className?: string }) {
           <path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9S9.5 5.7 12 3z" />
         </svg>
         <span className="text-xs font-semibold uppercase">{prefs.lang}</span>
-        <span className="hidden lg:inline text-xs">· Aa</span>
+        <span className="hidden xl:inline text-xs">· Aa</span>
       </button>
-      {open && <SettingsDialog onClose={() => setOpen(false)} />}
+      {/* Portal: the sticky header uses backdrop-blur, which would otherwise trap this fixed overlay inside the header. */}
+      {open && createPortal(<SettingsDialog onClose={() => setOpen(false)} />, document.body)}
     </>
   );
 }
@@ -56,14 +58,14 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[55] flex items-end sm:items-center justify-center" role="presentation">
+    <div className="fixed inset-0 z-[55] flex items-end sm:items-center justify-center sm:p-4" role="presentation">
       <div className="absolute inset-0 bg-ink/30 backdrop-blur-[2px]" onClick={onClose} aria-hidden />
       <div
         ref={ref}
         role="dialog"
         aria-modal="true"
         aria-labelledby="settings-title"
-        className="relative w-full sm:max-w-md bg-cream rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 sm:p-6 max-h-[90vh] overflow-y-auto"
+        className="relative w-full sm:max-w-md bg-cream rounded-t-3xl sm:rounded-3xl shadow-2xl p-5 sm:p-6 max-h-[92dvh] overflow-y-auto overscroll-contain"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 20px)" }}
       >
         <div className="flex items-center justify-between">
@@ -124,14 +126,14 @@ function SettingsDialog({ onClose }: { onClose: () => void }) {
           <Toggle label="High contrast" sub="Darker text and stronger outlines." checked={prefs.contrast === "high"} onChange={(v) => set("contrast", v ? "high" : "normal")} />
           <Toggle
             label="Spoken selfie guidance"
-            sub={tts ? "The camera says tips out loud, so you don’t need to read the screen." : "Not supported in this browser."}
+            sub={tts ? "A natural voice says each tip out loud, so you don’t need to look at the screen." : "Not supported in this browser."}
             checked={prefs.voiceTips}
             disabled={!tts}
             onChange={(v) => set("voiceTips", v)}
           />
           <Toggle
             label="Read coach answers aloud"
-            sub={tts ? `Uses your device’s ${langInfo(prefs.lang).label} voice.` : "Not supported in this browser."}
+            sub={tts ? `Natural AI voice, in ${langInfo(prefs.lang).label}. You can also tap “Listen” on any answer.` : "Not supported in this browser."}
             checked={prefs.autoRead}
             disabled={!tts}
             onChange={(v) => set("autoRead", v)}

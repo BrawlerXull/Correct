@@ -434,7 +434,7 @@ export default function CorrectApp({ embed = false }: { embed?: boolean }) {
                       onClick={() => avail && scrollTo(s.id)}
                       disabled={!avail}
                       aria-current={current ? "step" : undefined}
-                      className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-sm transition ${current ? "bg-ink text-cream" : avail ? "hover:bg-sand" : "text-muted/60 cursor-not-allowed"}`}
+                      className={`flex items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-sm transition ${current ? "bg-ink text-cream" : avail ? "hover:bg-sand" : "text-muted/60 cursor-not-allowed"}`}
                     >
                       <span className={`grid h-5 w-5 place-items-center rounded-full text-[0.6875rem] font-semibold ${current ? "bg-cream text-ink" : done ? "bg-sage text-white" : "bg-sand text-muted"}`}>
                         {done ? "✓" : i + 1}
@@ -447,6 +447,11 @@ export default function CorrectApp({ embed = false }: { embed?: boolean }) {
             </ol>
           </nav>
           <div className="ml-auto flex items-center gap-2">
+            {!embed && !plan && (
+              <a href="#for-stores" className="hidden xl:inline-flex btn-ghost !py-2 !px-3 text-xs">
+                For stores
+              </a>
+            )}
             <SettingsButton />
             {!embed && <InstallButton className="hidden sm:inline-flex" />}
             <button onClick={openCoach} className="btn-ghost !py-2 hidden sm:inline-flex">
@@ -527,6 +532,15 @@ export default function CorrectApp({ embed = false }: { embed?: boolean }) {
                 </li>
               ))}
             </ul>
+            <a
+              href="#for-stores"
+              className="mt-7 inline-flex items-center gap-3 rounded-full border border-ink/15 bg-white/70 py-1.5 pl-1.5 pr-4 text-sm hover:border-ink hover:bg-white transition"
+            >
+              <span className="rounded-full bg-ink text-cream px-2.5 py-1 text-[0.6875rem] font-semibold uppercase tracking-wider">For stores</span>
+              <span>
+                Embed it on any product page with <strong className="font-semibold">one line of code</strong> →
+              </span>
+            </a>
           </div>
           )}
 
@@ -707,10 +721,102 @@ export default function CorrectApp({ embed = false }: { embed?: boolean }) {
                   Correctors are the hardest base product to buy online: shoppers can’t swatch them and the “right” colour depends on their depth. CORRECT turns one selfie into a matched basket from the
                   store’s own catalogue (CIEDE2000), so fewer wrong-shade buys and returns.
                 </p>
-                <a href="/store-demo" className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-rose-dark underline underline-offset-2">
-                  See it embedded in a demo store (one script tag) →
+                <a href="#for-stores" className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-rose-dark underline underline-offset-2">
+                  How stores add it in one line ↓
                 </a>
               </article>
+            </div>
+          </section>
+        )}
+
+        {/* ───────────── For stores & developers ───────────── */}
+        {!embed && !plan && phase !== "analyzing" && (
+          <section id="for-stores" aria-labelledby="stores-title" className="mx-auto max-w-6xl px-4 sm:px-5 pb-16 scroll-mt-24">
+            <div className="overflow-hidden rounded-3xl bg-ink text-cream shadow-card">
+              <div className="grid lg:grid-cols-[1fr_1.05fr]">
+                <div className="p-6 md:p-10">
+                  <p className="text-[0.6875rem] uppercase tracking-[0.18em] text-cream/60 font-medium">For stores &amp; developers</p>
+                  <h2 id="stores-title" className="font-serif text-3xl md:text-4xl leading-tight mt-2">
+                    Add CORRECT to any product page
+                    <br />
+                    <span className="italic text-[#E8B4BC]">with one line of code.</span>
+                  </h2>
+                  <p className="mt-4 text-cream/80 leading-relaxed max-w-lg">
+                    Shoppers can’t swatch correctors online, so they guess and return. Drop in the widget and they get a selfie-matched shade from <em>your</em> catalogue, right on your page, and the
+                    matched SKUs come straight back to your cart.
+                  </p>
+                  <ul className="mt-6 grid sm:grid-cols-2 gap-x-6 gap-y-3 text-[0.9375rem]">
+                    {[
+                      ["One <script> tag", "No SDK, no build step, works on any platform."],
+                      ["SKUs back to your cart", "correct:add-to-bag event with sku, shade, qty."],
+                      ["Privacy by design", "The selfie never reaches your page – only shades & SKUs."],
+                      ["Inclusive out of the box", "11 languages, voice, large text, all skin depths."],
+                    ].map(([t, d]) => (
+                      <li key={t} className="flex gap-3">
+                        <span className="mt-1 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-sage text-white text-[0.6875rem]" aria-hidden>
+                          ✓
+                        </span>
+                        <span>
+                          <span className="block font-medium text-cream">{t}</span>
+                          <span className="block text-sm text-cream/70">{d}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="mt-8 flex flex-wrap gap-3">
+                    <a href="/store-demo" className="btn !py-3 !px-6 bg-cream text-ink hover:bg-white text-[0.9375rem]">
+                      Try the live store demo →
+                    </a>
+                    <a
+                      href="https://github.com/BrawlerXull/Correct#made-for-a-wider-audience"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn !py-3 !px-6 border border-cream/30 text-cream hover:bg-white/10 text-[0.9375rem]"
+                    >
+                      Integration docs ↗
+                    </a>
+                  </div>
+                </div>
+                <div className="bg-black/30 p-5 md:p-8 flex flex-col gap-4 justify-center">
+                  <div className="rounded-2xl bg-[#1d1816] border border-white/10 overflow-hidden">
+                    <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-white/10" aria-hidden>
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#E8B4BC]/70" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#F0D27A]/70" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-sage/80" />
+                      <span className="ml-2 text-[0.6875rem] text-cream/50">product-page.html</span>
+                    </div>
+                    <pre className="overflow-x-auto p-4 text-[0.75rem] leading-relaxed text-cream/90">
+                      <code>
+                        <span className="text-cream/40">{"<!-- 1. the button -->"}</span>
+                        {"\n"}
+                        <span className="text-[#E8B4BC]">{"<script"}</span> <span className="text-[#F0D27A]">src</span>=<span className="text-[#A8D5A0]">&quot;https://correct-youcam.vercel.app/widget.js&quot;</span>
+                        {"\n        "}
+                        <span className="text-[#F0D27A]">data-label</span>=<span className="text-[#A8D5A0]">&quot;Find my corrector shade&quot;</span> <span className="text-[#E8B4BC]">{"async></script>"}</span>
+                        {"\n\n"}
+                        <span className="text-cream/40">{"<!-- 2. matched SKUs → your cart -->"}</span>
+                        {"\n"}
+                        <span className="text-[#E8B4BC]">{"<script>"}</span>
+                        {"\n  addEventListener("}
+                        <span className="text-[#A8D5A0]">&quot;correct:add-to-bag&quot;</span>
+                        {", e =>\n    e.detail.items.forEach(i => cart.add(i.sku)));\n"}
+                        <span className="text-[#E8B4BC]">{"</script>"}</span>
+                      </code>
+                    </pre>
+                  </div>
+                  <div className="rounded-2xl bg-cream text-ink p-4 flex items-center gap-4">
+                    <div className="flex -space-x-2" aria-hidden>
+                      {["#B9D9A9", "#EEB497", "#C69C82"].map((c) => (
+                        <span key={c} className="h-9 w-9 rounded-full ring-2 ring-cream" style={{ background: c }} />
+                      ))}
+                    </div>
+                    <div className="min-w-0 text-sm">
+                      <p className="font-medium">What your page receives</p>
+                      <p className="text-muted truncate font-mono text-[0.75rem]">{"{ sku: \"HT-GC-01\", shade: \"01 Mint\", qty: 1 } …"}</p>
+                    </div>
+                    <span className="ml-auto shrink-0 rounded-full bg-sage-soft text-[#3F6B39] px-2.5 py-1 text-[0.6875rem] font-medium">No photo</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         )}
@@ -1001,7 +1107,7 @@ export default function CorrectApp({ embed = false }: { embed?: boolean }) {
 
             {/* ───────────── 4. Kit ───────────── */}
             <section id="kit" className="mx-auto max-w-6xl px-5 pb-24 scroll-mt-32 md:scroll-mt-24">
-              <SectionHeader n={4} title="Your kit" sub="The closest shades in the store, matched to your target colours." />
+              <SectionHeader n={4} title="Your kit" sub="The closest shades in the store, matched to your target colours – or find the same shade at Sephora, Ulta, Amazon or Nykaa." />
               <div className="grid lg:grid-cols-[1.3fr_1fr] gap-6 items-start">
                 <div className="card p-5">
                   <ul className="divide-y divide-line">
@@ -1015,21 +1121,30 @@ export default function CorrectApp({ embed = false }: { embed?: boolean }) {
                             Shade {product.shade} · {product.size}
                           </p>
                           <MatchBadge dE={dE} />
-                          <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-                            <span className="text-muted">Find similar:</span>
-                            {STORES.map((st) => (
-                              <a
-                                key={st.id}
-                                href={st.url(searchQuery(step, plan!.profile.depthLabel, plan!.profile.undertone))}
-                                target="_blank"
-                                rel="noopener noreferrer nofollow"
-                                className="rounded-full border border-line bg-white px-2 py-0.5 hover:bg-sand hover:border-ink"
-                                aria-label={`Search ${st.name} for ${searchQuery(step, plan!.profile.depthLabel, plan!.profile.undertone)} (opens in a new tab)`}
-                              >
-                                {st.name} ↗
-                              </a>
-                            ))}
-                          </p>
+                          <div className="mt-3 rounded-xl bg-sand/70 px-3 py-2.5">
+                            <p className="text-xs font-semibold text-ink flex items-center gap-1.5">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                                <circle cx="11" cy="11" r="7" />
+                                <path d="M20 20l-4-4" />
+                              </svg>
+                              Find this shade at your favourite store
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {STORES.map((st) => (
+                                <a
+                                  key={st.id}
+                                  href={st.url(searchQuery(step, plan!.profile.depthLabel, plan!.profile.undertone))}
+                                  target="_blank"
+                                  rel="noopener noreferrer nofollow"
+                                  className="inline-flex items-center gap-1 rounded-full border border-ink/20 bg-white px-3 py-1.5 text-[0.8125rem] font-medium text-ink shadow-sm hover:border-ink hover:bg-ink hover:text-cream transition"
+                                  aria-label={`Search ${st.name} for ${searchQuery(step, plan!.profile.depthLabel, plan!.profile.undertone)} (opens in a new tab)`}
+                                >
+                                  {st.name}
+                                  <span aria-hidden className="text-xs">↗</span>
+                                </a>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                         <span className="font-medium text-lg">${product.price}</span>
                       </li>

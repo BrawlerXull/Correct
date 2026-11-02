@@ -1,6 +1,6 @@
 // CORRECT service worker – makes the app installable and keeps the shell, samples and face detector available offline.
 // API calls (/api/*) are never cached: they need live YouCam / Gemini results.
-const VERSION = "correct-v4";
+const VERSION = "correct-v5";
 const SHELL = [
   "/",
   "/manifest.webmanifest",
@@ -67,7 +67,7 @@ self.addEventListener("fetch", (event) => {
   }
 
   // Static assets, sample bundles, icons, MediaPipe wasm/model: cache first.
-  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/samples/") || url.pathname.startsWith("/mediapipe/") || url.pathname.startsWith("/icons/")) {
+  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/samples/") || url.pathname.startsWith("/mediapipe/") || url.pathname.startsWith("/voice/") || url.pathname.startsWith("/icons/")) {
     event.respondWith(
       caches.match(req).then(
         (hit) =>
